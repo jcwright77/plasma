@@ -192,7 +192,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9):
         fig = p.figure()
         ax = fig.add_subplot(111)
         ax.set_aspect('equal')
-        p.contour ( r, z, psizr.T, N ,aspect='equal')
+        p.contour ( r, z, psizr.T, N )
         p.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
         p.plot ( rlim, zlim, 'g', linewidth = 4 )
         p.show ()
