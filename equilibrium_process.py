@@ -245,8 +245,10 @@ def getModB(eq):
         fpolRZ.append( spline_fpol(psirow) )
     fpolRZ=np.array(fpolRZ) #Fpol numpy array on RZ mesh
 
-    modB=np.sqrt(grad_psi**2+fpolRZ**2)
-    modB=modB/Rv
+    modgradpsi=np.sqrt(grad_psi**2+fpolRZ**2)
+    modB=modgradpsi/Rv
+    if R[0]==0.0: #If origin is included in domain, be careful with |B| on axis.
+        modB[:,0]=(np.diff(modgradpsi,axis=1)/(R[1]-R[0]))[:,0]
     #Add components
     return modB,grad_psi,fpolRZ,Rv,Zv
 
