@@ -6,7 +6,7 @@ import scipy.interpolate as interpolate
 mu0=4.*np.pi*1.e-7
 R=eq.get('r')
 Z=eq.get('z')
-B,grad_psi,fRZ,Rv,Zv=eqdsk.getModB(eq)
+B,grad_psi,fRZ,RR,ZZ=eqdsk.getModB(eq)
 psi=eq.get('psizr').T
 curtor=[]
 area=[]
@@ -29,7 +29,6 @@ newR=np.arange(min(R),max(R),0.01)
 newZ=np.arange(min(Z),max(Z),0.01)
 newZ=newZ-eq['zmaxis']  #axis needs to be at z=0 for mapping
 
-RR,ZZ=np.mgrid [min(R):max(R):129j, min(Z):max(Z):129j ] #129x129 2D coordinate meshes
 RR_finer,ZZ_finer=np.mgrid [min(R):max(R):200j, min(Z):max(Z):200j ] #200x200 2D coordinate meshes
 
 spline_psi = interpolate.RectBivariateSpline(R,Z,psi.T,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
