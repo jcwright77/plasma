@@ -1,7 +1,29 @@
-#put it all together
+#helper routines
+from scipy.signal import butter, filtfilt
+def butter_lowpass(cutoff, fs, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def butter_lowpass_filtfilt(data, cutoff, fs, order=5):
+    b, a = butter_lowpass(cutoff, fs, order=order)
+    y = filtfilt(b, a, data)
+    return y
+
+  def find_cut(x,y, rmaxis, zmaxis):
+  #adapted from S. Shiraiwai to find crossing going counter clockwise
+  for k in range(len(y)-1):
+       km = k-1
+       if y[km] < zmaxis and y[k] > zmaxis:
+         return k
+  return -1
+
+
 import scipy.integrate as integrate
 import scipy.fftpack as sft
 import scipy.interpolate as interpolate
+
 
 mu0=4.*np.pi*1.e-7
 R=eq.get('r')
@@ -11,18 +33,11 @@ psi=eq.get('psizr').T
 curtor=[]
 area=[]
 
-mapzmaxis=0.0
 
+#Parameters
+mapzmaxis=0.0
 ifrhopol=True #use root psipol mesh instead of psipol (eg for torlh)
 jac='straight' #'eqarc'
-
-def find_cut(x,y, rmaxis, zmaxis):
-  #adapted from S. Shiraiwai to find crossing going counter clockwise
-  for k in range(len(y)-1):
-       km = k-1
-       if y[km] < zmaxis and y[k] > zmaxis:
-         return k
-  return -1
 
 # get flux surface on fine rectangular mesh
 newR=np.arange(min(R),max(R),0.01)
@@ -205,6 +220,8 @@ except FileNotFoundError:
   Zmap=np.real(np.vstack(eq_y))
   eq['darea_dpsi']=area
   eq['dI_dpsi']=curtor
+  
+  
   #add origin
   NXmap=np.zeros([npsi,ntheta])
   NZmap=np.zeros([npsi,ntheta])
@@ -220,6 +237,16 @@ except FileNotFoundError:
   Xmap=NXmap
   Zmap=NZmap
 
+  #smooth radial dependence with lowpass filter
+  for ith in range(Zmap.shape[1]):
+    theZ=Zmap[:,ith]
+    theX=Xmap[:,ith]
+
+    smoothZ = butter_lowpass_filtfilt(theZ,6,npsi)
+    smoothX = butter_lowpass_filtfilt(theX,6,npsi)
+    Zmap[:,ith]=smoothZ
+    Xmap[:,ith]=smoothX
+  
   print('shapes of mapped arrays: ',Xmap.shape,Zmap.shape)
   #save this in pickle file
   eq['xmap']=Xmap
