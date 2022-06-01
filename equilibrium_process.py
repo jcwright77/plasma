@@ -215,7 +215,7 @@ def getModB(eq):
     Calculate the magnitude of the magnetic field on the RZ mesh.
 
 
-        |B| = \sqrt(Fpol^2+d\Psi/dZ^2+d\Psi/dR^2)/R
+        |B| = \sqrt(Fpol^2+(d\Psi/dZ)^2+(d\Psi/dR)^2)/R
 
     where Fpol== R*Bphi , Bpol = |grad Psi|/R
     """
