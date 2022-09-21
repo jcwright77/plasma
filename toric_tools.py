@@ -632,26 +632,26 @@ class toric_analysis:
         "Read the equilibrium file created by toric in toricmode='equil',isol=0."
         if self.idebug:
             print ("Using ", equigsfile)
-        equigs_hdl=file(equigsfile,'r')
+        equigs_hdl=open(equigsfile,'r')
 
         varname = self.__get_varname(equigs_hdl)
-        self.equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)
+        self.equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
 
         varname = self.__get_varname(equigs_hdl)
-        self.equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)
+        self.equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
 
         varname = self.__get_varname(equigs_hdl)
-        self.equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)
+        self.equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
 
         varname = self.__get_varname(equigs_hdl)
-        self.equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)
+        self.equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
 
         varname = self.__get_varname(equigs_hdl)
-        self.equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)
+        self.equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
         imom = self.equigs["imom"]
 
         varname = self.__get_varname(equigs_hdl)
-        self.equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)
+        self.equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
         nmhd = self.equigs["nmhd"]
 
         varname = self.__get_varname(equigs_hdl)
@@ -676,7 +676,7 @@ class toric_analysis:
         self.equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
 
         varname = self.__get_varname(equigs_hdl)
-        self.equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)
+        self.equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
 
         equigs_hdl.close()
 

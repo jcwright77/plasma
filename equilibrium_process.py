@@ -51,7 +51,7 @@
 # RLIM: R of surrounding limiter contour in meter                      - RLIM
 # ZLIM: Z of surrounding limiter contour in meter                      - ZLIM
 
-def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9):
+def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dolimiter=None):
     import re
     import numpy as n
     import pylab as p
@@ -194,7 +194,8 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9):
         ax.set_aspect('equal')
         p.contour ( r, z, psizr.T, N )
         p.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
-        p.plot ( rlim, zlim, 'g', linewidth = 4 )
+        if (dolimiter):
+            p.plot ( rlim, zlim, 'g', linewidth = 4 )
         p.show ()
 
     #checks
