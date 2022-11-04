@@ -51,7 +51,7 @@
 # RLIM: R of surrounding limiter contour in meter                      - RLIM
 # ZLIM: Z of surrounding limiter contour in meter                      - ZLIM
 
-def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dolimiter=None):
+def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dolimiter=None, ax=None):
     import re
     import numpy as n
     import pylab as p
@@ -78,7 +78,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     if len(bbbStr) > 0:
         nbbbsStr    = dimensionsRE5.findall ( bbbStr[0] )
     else:
-        print('no bounding box find. should be Line with 2 integers length of 10 characters')
+        print('no bounding box found. should be Line with 2 integers length of 10 characters')
         return -1
         
     nWnHStr = dimensionsRE.findall ( headerStr[0] )
@@ -189,14 +189,20 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
         if not isinstance(doplot,bool):
             if isinstance(doplot,int):
                  N=doplot
-        fig = p.figure()
-        ax = fig.add_subplot(111)
-        ax.set_aspect('equal')
-        p.contour ( r, z, psizr.T, N )
-        p.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
-        if (dolimiter):
-            p.plot ( rlim, zlim, 'g', linewidth = 4 )
-        p.show ()
+        if ax is None:
+            fig = p.figure()
+            ax = fig.add_subplot(111)
+            ax.set_aspect('equal')
+            p.contour ( r, z, psizr.T, N )
+            p.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+            if (dolimiter):
+                p.plot ( rlim, zlim, 'g', linewidth = 4 )
+            p.show ()
+        else:
+            ax.contour (r, z, psizr.T, N )
+            ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+            if (dolimiter):
+                ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
 
     #checks
     # rmaxis =/ rcentr
@@ -351,7 +357,7 @@ def writeEQDSK(eq,fname):
 
         writeVar(handle,longArrayOfPairs)
         
-    A52 = 'plasma.py v1.0 : 01:01:17'.ljust(48)
+    A52 = 'plasma.py_v1.0_:_01:01:17'.ljust(48)
     f.write(A52[0:48])
     writeVar(ff.FortranRecordWriter('3i4'), [0,nr,nz] )
     writeVar(f2020,[rdim,zdim,rcentr,rleft,zmid])
