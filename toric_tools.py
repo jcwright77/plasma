@@ -6,7 +6,7 @@ import numpy.fft as ft
 import scipy.io.netcdf as nc
 import matplotlib.pyplot as plt
 import os
-
+from matplotlib import ticker, cm
 
 def cmap_xmap(function,cmap):
     """ Applies function, on the indices of colormap cmap. Beware, function
@@ -249,32 +249,38 @@ class toric_analysis:
         plt.xlabel(r'$X[cm]$')
         return line
 
-    def __plot1D( self, xvar, yvar, ptitle='', plabel='', idx2=None):
-        "Internal 1D plot"
 
-        x=self.cdf_hdl.variables[xvar] #.data
-        y=self.cdf_hdl.variables[yvar] #.data
+    def __plot1D( self, xvar, yvar, ptitle=None, plabel='', idx2=None):
+        "Internal 1D plot"
+        x=self.cdf_hdl.variables[xvar]
+        y=self.cdf_hdl.variables[yvar]
         if (self.mode[:2]=='LH'):
             xname=''
             yname=plabel
         else:
-            xname=x.long_name
-            yname=(y.long_name[0:10]).decode('UTF-8') + y.units.decode('UTF-8')
-        x=x.data
-        y=y.data
+            xname=x.long_name.decode('UTF-8')
+            yname=(y.long_name[0:20]).decode('UTF-8') + y.units.decode('UTF-8')
+
+        x=x[:]
         if (idx2!=None):
             if (len(y.shape)==2):
                 y=y[:,idx2]
             else:
                 print(yvar+" has wrong number of dims in __plot1d.")
+                return
+        else:
+            y=y[:]
+
         if (np.size(y) > np.size(x)):
             print ("ToricTools.__plot1D resizing",yvar)
             y=np.array(y)[0:np.size(x)]
 
         line=plt.plot(x,y)
-        plt.title(ptitle)
-        plt.xlabel(str(xname))
-        plt.ylabel(str(yname[:20])) #limit length to 20 char
+        if ptitle:
+            plt.title(ptitle)
+        plt.xlabel(xname)
+        plt.ylabel(yname)
+
 
         return line
 
@@ -365,7 +371,7 @@ class toric_analysis:
         if (np.size(levels)==1):
             nlevels=7
 #            levels=np.arange(nelm/nlevels,nelm-1,nelm/nlevels)
-            levels=np.arange(nlevels)*nelm/nlevels
+            levels=(np.arange(nlevels)*nelm/nlevels).astype(int)
         else:
             levels=(np.array(levels)*nelm).astype(int)
             nlevels=np.size(levels)
@@ -383,11 +389,11 @@ class toric_analysis:
         thq=th
         for indr in range(levels.size): #levels:  #fft in python isn't normalized to N
             ir=levels[indr]
-            print ('levels',ir,levels[indr],rlevels[indr],th)
+            #print ('levels',ir,levels[indr],rlevels[indr],th)
             if q!=None:
                 thq=-2.5*(1+0.3)/(1+0.3*rlevels[indr])*(1+th/191./q(rlevels[indr]))
 
-            print (thq)
+            #print (thq)
             ffield = ft.fftshift(np.log10(abs(ft.fft(field[:,ir]))/float(ntt)+1.e-20))
             ymax = np.max( [ymax, np.max(ffield)] )
             ymin = np.min( [ymin, np.min(ffield)] )
@@ -438,7 +444,8 @@ class toric_analysis:
             'axes.titlesize': self.mypt+2.0,
             'xtick.labelsize':self.mypt,
             'ytick.labelsize':self.mypt,
-            'font.weight'  : self.fw
+            'font.weight'  : self.fw,
+            'text.usetex' : False
             }
         plt.rcParams.update(params)
 
@@ -547,7 +554,7 @@ class toric_analysis:
             print ("values",val)
 
     #reverse redblue map so red is positive
-#            revRBmap=cmap_xmap(lambda x: 1.-x, cm.get_cmap('RdBu'))
+           # revRBmap=cmap_xmap(lambda x: 1.-x, cm.get_cmap('RdBu'))
 
     #finally, make the plot
         cwidth=xxx.max()-xxx.min()
@@ -599,12 +606,12 @@ class toric_analysis:
 
 
         if (logl <= 0):
-            CS=plt.contourf(xxx,yyy,ee2d,val*scaletop) #30APR2009 removed *0.2
+            CS=plt.contourf(xxx,yyy,ee2d,val*scaletop,cmap=cm.jet) #30APR2009 removed *0.2
 
         if (logl > 0):
 #            lee2d=np.sign(ee2d)*np.log(np.sqrt(np.abs(ee2d)**2+1)+np.abs(ee2d))/np.log(10)
             lee2d=np.log(np.abs(ee2d)+0.1)/np.log(10)
-            CS=plt.contourf(xxx,yyy,lee2d,logl)
+            CS=plt.contourf(xxx,yyy,lee2d,logl,cmap=cm.jet)
 
         print ("interactive on")
 #        plt.ion()
@@ -738,7 +745,7 @@ class toric_analysis:
 #also need to replace '-0.' with ' -0.'
 #sed -n -e '/elec/,/,/p' filename | sed -e '/-0\./ -0./g' > torica_2dpower.sol
         try:
-            toricsol = file('torica_2dpower.sol','r')
+            toricsol = open('torica_2dpower.sol','r')
         except IOError:
             print ('CRITICAL: torica_2dpower.sol not found.')
             print ('Try to generate:')
@@ -749,7 +756,7 @@ class toric_analysis:
                 cmd="sed -n  '/elec/,$p' toric.sol| sed 's/-0\./ -0./g' > torica_2dpower.sol"
 
             os.system(cmd)
-            toricsol = file('torica_2dpower.sol','r')
+            toricsol = open('torica_2dpower.sol','r')
 
 #skip title and max value
         toricsol.readline()
