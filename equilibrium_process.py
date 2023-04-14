@@ -51,7 +51,7 @@
 # RLIM: R of surrounding limiter contour in meter                      - RLIM
 # ZLIM: Z of surrounding limiter contour in meter                      - ZLIM
 
-def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dolimiter=None, ax=None):
+def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dolimiter=None, ax=None, dodebug=False):
     import re
     import numpy as n
     import pylab as p
@@ -88,9 +88,15 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
 
     nbbbs   = n.int ( nbbbsStr[-2] )
     limitr   = n.int( nbbbsStr[-1] )
+
    
     rdim    = n.float ( dataStr[0] )
     zdim    = n.float ( dataStr[1] )
+
+    if dodebug==True: print("Data string header:", dataStr[0:20] )
+    if dodebug==True: print("Dimensions:", nW, nH, nbbbs, limitr, rdim, zdim )
+    if dodebug==True: print("Size of data:", len(dataStr), 20+nW*5+nW*nH+2*nbbbs+2*limitr  )
+
     rcentr  = n.float ( dataStr[2] )
     rleft   = n.float ( dataStr[3] )
     zmid    = n.float ( dataStr[4] )
@@ -129,11 +135,13 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
         pprime[i] = dataStr[n.cast['int'](i+20+3*nW)]
         qpsi[i] = dataStr[n.cast['int'](i+20+4*nW+nW*nH)]
 
+    if dodebug: print('one D arrays: ', fpol[-1],pres[-1], ffprim[-1], pprime[-1], qpsi[-1] )
     for i in n.arange ( nbbbs ) :
     
         rbbbs[i]    = dataStr[n.cast['int'](i*2+20+5*nW+nW*nH)]
         zbbbs[i]    = dataStr[n.cast['int'](i*2+1+20+5*nW+nW*nH)]
-   
+  
+
     for i in n.arange ( limitr ) :
        
         rlim[i] = dataStr[n.cast['int'](i*2+20+5*nW+nW*nH+2*nbbbs)] 
