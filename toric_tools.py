@@ -25,6 +25,18 @@ def cmap_xmap(function,cmap):
     return matplotlib.colors.LinearSegmentedColormap('colormap',cdict,1024)
 
 
+def print_vector(nrep,fstr,a):
+    """
+    Converts an array of numbers into a string formated by fstr with nrep values per line.
+    """
+    n=a.size
+    pa=""
+    ta=a.reshape((a.size),order='F')
+    for j in range(0,n,nrep):
+        pa=pa+ "".join(map(lambda f: fstr % f, ta[j:min(j+nrep,n)]))+"\n"
+    return pa
+
+
 class toric_analysis:
     """Class to encapsulate tools used for toric analysis.
     Works with scipy 0.8.0 and scipy 0.10.0 and numpy 1.6
@@ -455,7 +467,8 @@ class toric_analysis:
 #note that if plot commands are in the toplevel, they will not return
 #to the prompt, but wait to be killed.
     def plot_2Dfield(self, component='E2d_z',species=None,logl=0,xunits=1.0,axis=(0.0,0.0),
-                     im=False, scaletop=1.0, ax='undef',fig='undef'):
+                     im=False, scaletop=1.0, scalebot=1.0,ax='undef',fig='undef'
+                     lscaletop=0.0,lscalebot=0.0):
         """
     
         example of using netcdf python modules to plot toric solutions
@@ -546,7 +559,7 @@ class toric_analysis:
 
     #contouring levels
         rmax=max([abs(emax),abs(emin)])*scaletop
-        rmin=min([0.,emax,emin])
+        rmin=min([0.,emax,emin])*scalebot
         #val=arange(emin,emax,(emax-emin)/25.,'d')
         val=np.arange(-rmax*1.1,rmax*1.1,(rmax+rmax)/25.,'d')
         if (im):
@@ -579,9 +592,9 @@ class toric_analysis:
     #read ant length.  Calculate arc length vs theta to this value/2
     #in each direction, this plots the antenna location
         anthw=max(int(sx*0.01),4)
-        plt.plot(xxx[sx-anthw+1:sx+1,maxpsi],yyy[sx-anthw+1:sx+1,maxpsi],'g-',linewidth=3)
-        plt.plot(xxx[0:anthw,maxpsi],yyy[0:anthw,maxpsi],'g-',linewidth=3)
-
+        plt.plot(xxx[sx-anthw+1:sx+1,maxpsi],yyy[sx-anthw+1:sx+1,maxpsi],'g-',linewidth=6)
+        plt.plot(xxx[0:anthw,maxpsi],yyy[0:anthw,maxpsi],'g-',linewidth=6)
+        print("antenna: ", yyy[sx-anthw+1:sx+1,maxpsi])
         if self.label:
             ax=plt.gca()
             sublabel=self.prov['path']
@@ -606,13 +619,15 @@ class toric_analysis:
 
 
         if (logl <= 0):
-            CS=plt.contourf(xxx,yyy,ee2d,val*scaletop,cmap=cm.jet) #30APR2009 removed *0.2
+            CS=plt.contourf(xxx,yyy,ee2d,val,cmap=cm.jet) #30APR2009 removed *0.2
 
         if (logl > 0):
 #            lee2d=np.sign(ee2d)*np.log(np.sqrt(np.abs(ee2d)**2+1)+np.abs(ee2d))/np.log(10)
             lee2d=np.log(np.abs(ee2d)+0.1)/np.log(10)
-            CS=plt.contourf(xxx,yyy,lee2d,logl,cmap=cm.jet)
-
+            rmax=lee2d.ravel()[lee2d.argmax()]+lscaletop
+            rmin=lee2d.ravel()[lee2d.argmin()]+lscalebot
+            val=np.arange(rmin,rmax,(rmax-rmin)/(logl*1.0),'d')
+            CS=plt.contourf(xxx,yyy,lee2d,val,cmap=cm.jet)
         print ("interactive on")
 #        plt.ion()
 ##put the contour scales on the plot
@@ -696,7 +711,16 @@ class toric_analysis:
         line1,=self.psiplot(self.namemap['pelec'])
 #can use setp(lines, ) to change plot properties.
         plt.setp(line1,color='b',marker='+',label='seld')
-        ax1.set_ylabel('Power_e',color='b')
+        ax1.set_ylabel('Power',color='b')
+
+#add first two species if ICRF
+        if (self.mode[:2]!='LH'):
+           line2,=self.plotpower(power='PwIF',species=1)
+           line3,=self.plotpower(power='PwIF',species=2)
+           line4,=self.plotpower(power='PwIF',species=3)
+           line5,=self.plotpower(power='PwIH',species=1)
+           line6,=self.plotpower(power='PwIH',species=2)
+           line7,=self.plotpower(power='PwIH',species=3)
 
         ax2 = ax1.twinx()
         line2,=self.psiplot(self.namemap['poynt'])
@@ -705,6 +729,7 @@ class toric_analysis:
 #change color and symbol
         plt.setp(line2,color='r',marker='.',label='Poynt')
         ax2.set_ylabel('Poynting',color='r')
+
 #make  legend too
         plt.legend( (line1,line2), (r'$P_{eld}$','<ExB>'),loc=2 )
         fig.subplots_adjust(left=0.12,bottom=0.12,top=0.96,right=0.82,hspace=0.32)

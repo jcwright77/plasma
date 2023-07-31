@@ -365,7 +365,7 @@ def writeEQDSK(eq,fname):
 
         writeVar(handle,longArrayOfPairs)
         
-    A52 = 'plasma.py_v1.0_:_01:01:17'.ljust(48)
+    A52 = 'plasma.py_v1.1_:_01:01:17'.ljust(48)
     f.write(A52[0:48])
     writeVar(ff.FortranRecordWriter('3i4'), [0,nr,nz] )
     writeVar(f2020,[rdim,zdim,rcentr,rleft,zmid])
