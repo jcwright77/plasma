@@ -91,7 +91,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     nH  = n.int ( nWnHStr[2] )
     #idummy used as 1D size: nV, nW, nH
     nV  = n.int ( nWnHStr[0] )
-    if nV < 0:  nV = nW  
+    if nV <= 0:  nV = nW  
    
     rdim    = n.float ( dataStr[0] )
     zdim    = n.float ( dataStr[1] )
@@ -131,13 +131,13 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
 
 #   1D arrays
 
-    for i in n.arange ( nW ) : 
+    for i in n.arange ( nV ) : 
     
         fpol[i] = dataStr[n.cast['int'](i+20)]
         pres[i] = dataStr[n.cast['int'](i+20+nV)]
         ffprim[i] = dataStr[n.cast['int'](i+20+2*nV)]
         pprime[i] = dataStr[n.cast['int'](i+20+3*nV)]
-        #qpsi[i] = dataStr[n.cast['int'](i+20+4*nV+nW*nH)]
+        qpsi[i] = dataStr[n.cast['int'](i+20+4*nV+nW*nH)]
 
     if dodebug: print('one D arrays: ', fpol[-1],pres[-1], ffprim[-1], pprime[-1], qpsi[-1] )
     for i in n.arange ( nbbbs ) :  
@@ -154,7 +154,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
 
     for i in n.arange ( nW ) :
         for j in n.arange ( nH ) :
-            psizr[i,j] = dataStr[n.cast['int'](i+20+4*nW+j*nW)]
+            psizr[i,j] = dataStr[n.cast['int'](i+20+4*nV+j*nW)]
 
     rStep   = rdim / ( nW - 1 )
     zStep   = zdim / ( nH - 1 )
@@ -418,10 +418,10 @@ def resize(nx,eq):
     neweq['z']=z
     neweq['fluxGrid']=fluxGrid
 
-    neweq['fpol']=resize1D(eq['fluxGrid'],fluxGrid,,eq['fpol'])
-    neweq['pres']=resize1D(eq['fluxGrid'],fluxGrid,,eq['pres'])
-    neweq['ffprim']=resize1D(eq['fluxGrid'],fluxGrid,,eq['ffprim'])
-    neweq['pprime']=resize1D(eq['fluxGrid'],fluxGrid,,eq['pprime'])
+    neweq['fpol']=resize1D(eq['fluxGrid'],fluxGrid,eq['fpol'])
+    neweq['pres']=resize1D(eq['fluxGrid'],fluxGrid,eq['pres'])
+    neweq['ffprim']=resize1D(eq['fluxGrid'],fluxGrid,eq['ffprim'])
+    neweq['pprime']=resize1D(eq['fluxGrid'],fluxGrid,eq['pprime'])
 
     return neweq
 
