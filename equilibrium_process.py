@@ -77,25 +77,29 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     file.close ()
     if len(bbbStr) > 0:
         nbbbsStr    = dimensionsRE5.findall ( bbbStr[0] )
+        nbbbs   = n.int ( nbbbsStr[-2] )
+        limitr   = n.int( nbbbsStr[-1] )
     else:
-        print('no bounding box found. should be Line with 2 integers length of 10 characters')
-        return -1
+        print('no bounding box found or limiter. should be Line with 2 integers length of 10 characters')
+        nbbbsStr = []
+        nbbbs = 0  #should be there but cont if not
+        limitr = 0
         
-    nWnHStr = dimensionsRE.findall ( headerStr[0] )
+    nWnHStr = dimensionsRE5.findall ( headerStr[0] )
 
-    nW  = n.int ( nWnHStr[-2] )
-    nH  = n.int ( nWnHStr[-1] )
-
-    nbbbs   = n.int ( nbbbsStr[-2] )
-    limitr   = n.int( nbbbsStr[-1] )
-
+    nW  = n.int ( nWnHStr[1] )
+    nH  = n.int ( nWnHStr[2] )
+    #idummy used as 1D size: nV, nW, nH
+    nV  = n.int ( nWnHStr[0] )
+    if nV < 0:  nV = nW  
    
     rdim    = n.float ( dataStr[0] )
     zdim    = n.float ( dataStr[1] )
 
-    if dodebug==True: print("Data string header:", dataStr[0:20] )
-    if dodebug==True: print("Dimensions:", nW, nH, nbbbs, limitr, rdim, zdim )
-    if dodebug==True: print("Size of data:", len(dataStr), 20+nW*5+nW*nH+2*nbbbs+2*limitr  )
+    if dodebug==True: print("Data string header:", dataStr[0:20] ),
+    if dodebug==True: print("nWnStr string header:", nWnHStr,headerStr)
+    if dodebug==True: print("Dimensions:", nW, nH, nV, nbbbs, limitr, rdim, zdim )
+    if dodebug==True: print("Size of data:", len(dataStr), 20+nV*5+nW*nH+2*nbbbs+2*limitr  )
 
     rcentr  = n.float ( dataStr[2] )
     rleft   = n.float ( dataStr[3] )
@@ -109,12 +113,12 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
 
     current = n.float ( dataStr[10] )
 
-    fpol    = n.zeros ( nW )
-    pres    = n.zeros ( nW )
-    ffprim  = n.zeros ( nW )
-    pprime  = n.zeros ( nW )
+    fpol    = n.zeros ( nV )
+    pres    = n.zeros ( nV )
+    ffprim  = n.zeros ( nV )
+    pprime  = n.zeros ( nV )
     psizr   = n.zeros ( ( nW, nH ) )
-    qpsi    = n.zeros ( nW )
+    qpsi    = n.zeros ( nV )
     rbbbs   = n.zeros ( nbbbs )
     zbbbs   = n.zeros ( nbbbs )
     rlim    = n.zeros ( limitr )
@@ -130,22 +134,21 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     for i in n.arange ( nW ) : 
     
         fpol[i] = dataStr[n.cast['int'](i+20)]
-        pres[i] = dataStr[n.cast['int'](i+20+nW)]
-        ffprim[i] = dataStr[n.cast['int'](i+20+2*nW)]
-        pprime[i] = dataStr[n.cast['int'](i+20+3*nW)]
-        qpsi[i] = dataStr[n.cast['int'](i+20+4*nW+nW*nH)]
+        pres[i] = dataStr[n.cast['int'](i+20+nV)]
+        ffprim[i] = dataStr[n.cast['int'](i+20+2*nV)]
+        pprime[i] = dataStr[n.cast['int'](i+20+3*nV)]
+        #qpsi[i] = dataStr[n.cast['int'](i+20+4*nV+nW*nH)]
 
     if dodebug: print('one D arrays: ', fpol[-1],pres[-1], ffprim[-1], pprime[-1], qpsi[-1] )
-    for i in n.arange ( nbbbs ) :
-    
-        rbbbs[i]    = dataStr[n.cast['int'](i*2+20+5*nW+nW*nH)]
-        zbbbs[i]    = dataStr[n.cast['int'](i*2+1+20+5*nW+nW*nH)]
+    for i in n.arange ( nbbbs ) :  
+        rbbbs[i]    = dataStr[n.cast['int'](i*2+20+5*nV+nW*nH)]
+        zbbbs[i]    = dataStr[n.cast['int'](i*2+1+20+5*nV+nW*nH)]
   
 
     for i in n.arange ( limitr ) :
        
-        rlim[i] = dataStr[n.cast['int'](i*2+20+5*nW+nW*nH+2*nbbbs)] 
-        zlim[i] = dataStr[n.cast['int'](i*2+1+20+5*nW+nW*nH+2*nbbbs)] 
+        rlim[i] = dataStr[n.cast['int'](i*2+20+5*nV+nW*nH+2*nbbbs)] 
+        zlim[i] = dataStr[n.cast['int'](i*2+1+20+5*nV+nW*nH+2*nbbbs)] 
 
 #   2D array
 
@@ -214,7 +217,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
 
     #checks
     # rmaxis =/ rcentr
-    eqdsk = {'nW':nW, 'nH':nH, 'nbbbs':nbbbs, 'limitr':limitr, 'rdim':rdim,
+    eqdsk = {'nW':nW, 'nH':nH, 'nV':nV, 'nbbbs':nbbbs, 'limitr':limitr, 'rdim':rdim,
              'zdim':zdim, 'rcentr':rcentr, 'rleft':rleft, 'zmid':zmid, 
              'rmaxis':rmaxis, 'zmaxis':zmaxis, 'simag':simag, 'sibry':sibry,
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
@@ -383,6 +386,44 @@ def writeEQDSK(eq,fname):
     writeOrderedPairs(f2020,Rlim,Zlim)
     
     f.close()
+
+
+def resize(nx,eq):
+    import copy
+    neweq=copy.deepcopy(eq)
+    neweq['nW']=nx
+    neweq['nH']=nx
+
+    def resize1D(x,newx,profile):
+      import numpy as np
+      from scipy import interpolate
+      f = interpolate.interp1d(x, profile)
+      return f(newx)
+      
+
+    nW=nx
+    nH=nx
+    rdim=eq['rdim']
+    zdim=eq['zdim']
+    simag=eq['simag']
+    sibry=eq['sibry']
+    rStep   = rdim / ( nW - 1 )
+    zStep   = zdim / ( nH - 1 )
+    fStep   = -( simag - sibry ) / ( nW - 1 )
+    r   = n.arange ( nW ) * rStep + rleft
+    z   = n.arange ( nH ) * zStep + zmid - zdim / 2.0
+    fluxGrid    = n.arange ( nW ) * fStep + simag
+
+    neweq['r']=r
+    neweq['z']=z
+    neweq['fluxGrid']=fluxGrid
+
+    neweq['fpol']=resize1D(eq['fluxGrid'],fluxGrid,,eq['fpol'])
+    neweq['pres']=resize1D(eq['fluxGrid'],fluxGrid,,eq['pres'])
+    neweq['ffprim']=resize1D(eq['fluxGrid'],fluxGrid,,eq['ffprim'])
+    neweq['pprime']=resize1D(eq['fluxGrid'],fluxGrid,,eq['pprime'])
+
+    return neweq
 
 
 def rescaleB(newR,eq,filename):
