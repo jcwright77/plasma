@@ -60,7 +60,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     data    = file.read ()
 
     dimensionsRE    = re.compile ( ' {1,3}\d?\d?\d?\d\d' ) # Equivilant to i5 fortran code, JCW these should be i4
-    dimensionsRE5    = re.compile ( ' {1,3}\d?\d?\d?\d' ) # Equivilant to i5 fortran code
+    dimensionsRE4    = re.compile ( ' {1,3}\d?\d?\d?\d' ) # Equivilant to i4 fortran code
     headerRE    = re.compile ( '^.*\\n') # First line
     if width==9:
         valuesRE   = re.compile ( '([ \-]\d\.\d{9}[eEdD][\+\-]\d\d)' )   # Equivilant to e16.9 fortran code
@@ -76,7 +76,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
 
     file.close ()
     if len(bbbStr) > 0:
-        nbbbsStr    = dimensionsRE5.findall ( bbbStr[0] )
+        nbbbsStr    = dimensionsRE4.findall ( bbbStr[0] )
         nbbbs   = n.int ( nbbbsStr[-2] )
         limitr   = n.int( nbbbsStr[-1] )
     else:
@@ -85,21 +85,23 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
         nbbbs = 0  #should be there but cont if not
         limitr = 0
         
-    nWnHStr = dimensionsRE5.findall ( headerStr[0] )
+    nWnHStr = dimensionsRE4.findall ( headerStr[0][48:] )
 
     nW  = n.int ( nWnHStr[1] )
     nH  = n.int ( nWnHStr[2] )
     #idummy used as 1D size: nV, nW, nH
     nV  = n.int ( nWnHStr[0] )
-    if nV <= 0:  nV = nW  
-   
+    if nV <= 0:  nV = nW  #disable non standard and meaningless
+    nV=nW
+    
     rdim    = n.float ( dataStr[0] )
     zdim    = n.float ( dataStr[1] )
 
-    if dodebug==True: print("Data string header:", dataStr[0:20] ),
-    if dodebug==True: print("nWnStr string header:", nWnHStr,headerStr)
-    if dodebug==True: print("Dimensions:", nW, nH, nV, nbbbs, limitr, rdim, zdim )
-    if dodebug==True: print("Size of data:", len(dataStr), 20+nV*5+nW*nH+2*nbbbs+2*limitr  )
+    if dodebug: 
+        print("Data string header:", dataStr[0:20] ),
+        print("nWnStr string header:", nWnHStr,headerStr, len(headerStr))
+        print("Dimensions:", nW, nH, nV, nbbbs, limitr, rdim, zdim )
+        print("Size of data:", len(dataStr), 20+nV*5+nW*nH+2*nbbbs+2*limitr  )
 
     rcentr  = n.float ( dataStr[2] )
     rleft   = n.float ( dataStr[3] )

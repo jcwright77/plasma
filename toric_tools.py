@@ -93,7 +93,7 @@ class toric_analysis:
             if self.toric_name=='None': self.toric_name='toric.ncdf'
 ##Open the toric netcdf file read only
         try:
-            self.cdf_hdl = nc.netcdf_file(self.toric_name,mmap=False )#,'r')
+            self.cdf_hdl = nc.netcdf_file(path+self.toric_name,mmap=False )#,'r')
         except IOError:
             print ('CRITICAL: ',self.toric_name,' not found.')
             self.cdf_hdl = -1
@@ -371,7 +371,7 @@ class toric_analysis:
 
         if (cx==1):
             fieldi = (self.__getvar__(componenti))#[:,:]
-            field=np.array(field)+np.complex(0.,1.)*np.array(fieldi)
+            field=np.array(field)+1.0j*np.array(fieldi)
 
         rad   = self.__getvar__(radius)
 
@@ -467,8 +467,7 @@ class toric_analysis:
 #note that if plot commands are in the toplevel, they will not return
 #to the prompt, but wait to be killed.
     def plot_2Dfield(self, component='E2d_z',species=None,logl=0,xunits=1.0,axis=(0.0,0.0),
-                     im=False, scaletop=1.0, scalebot=1.0,ax='undef',fig='undef'
-                     lscaletop=0.0,lscalebot=0.0):
+                     im=False, scaletop=1.0, scalebot=1.0,ax='undef',fig='undef', lscaletop=0.0,lscalebot=0.0):
         """
     
         example of using netcdf python modules to plot toric solutions
@@ -522,7 +521,7 @@ class toric_analysis:
 
         if (im):
             im_e2d=(self.cdf_hdl.variables[im_e2dname]).data 
-            e2d = abs(e2d+np.complex(0.,1.)*im_e2d)
+            e2d = abs(e2d+1.0j*im_e2d)
 
         if (self.mode[:2]!='LH' and species):
             print('plot2D, indexing species', species)
