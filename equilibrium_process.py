@@ -77,8 +77,8 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     file.close ()
     if len(bbbStr) > 0:
         nbbbsStr    = dimensionsRE4.findall ( bbbStr[0] )
-        nbbbs   = n.int ( nbbbsStr[-2] )
-        limitr   = n.int( nbbbsStr[-1] )
+        nbbbs   = int ( nbbbsStr[-2] )
+        limitr   = int( nbbbsStr[-1] )
     else:
         print('no bounding box found or limiter. should be Line with 2 integers length of 10 characters')
         nbbbsStr = []
