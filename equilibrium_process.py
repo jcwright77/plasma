@@ -90,7 +90,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     nW  = int ( nWnHStr[1] )
     nH  = int ( nWnHStr[2] )
     #idummy used as 1D size: nV, nW, nH
-    nV  = n.int ( nWnHStr[0] )
+    nV  = int ( nWnHStr[0] )
     if nV <= 0:  nV = nW  #disable non standard and meaningless
     nV=nW
     
