@@ -426,11 +426,18 @@ def resize(nx,eq):
     return neweq
 
 
-def rescaleB(newR,eq,filename):
+def rescaleB(eq,filename,s=1.,sR=1.):
+    """
+    Rescale by MHD scalings.
+    Psi scaling: Psi=s*Psi, P=s^2 P, g=s*g, beta stays the same
+    Pressure scaling: P=P+c, Psi unchanged
+    Toroidal field scaling: g^2=g^2+c, Psi unchanged
+    """
     import copy
 
     R0=eq['rmaxis']
     f=newR/R0
+    f=sR
 
     neweq=copy.deepcopy(eq)
     neweq['psizr']=eq['psizr']*f
