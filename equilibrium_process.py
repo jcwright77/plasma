@@ -60,7 +60,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
     data    = file.read ()
 
     dimensionsRE    = re.compile ( ' {1,3}\d?\d?\d?\d\d' ) # Equivilant to i5 fortran code, JCW these should be i4
-    dimensionsRE5    = re.compile ( ' {1,3}\d?\d?\d?\d' ) # Equivilant to i5 fortran code
+    dimensionsRE4    = re.compile ( ' {1,3}\d?\d?\d?\d' ) # Equivilant to i4 fortran code
     headerRE    = re.compile ( '^.*\\n') # First line
     if width==9:
         valuesRE   = re.compile ( '([ \-]\d\.\d{9}[eEdD][\+\-]\d\d)' )   # Equivilant to e16.9 fortran code
@@ -76,42 +76,44 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
 
     file.close ()
     if len(bbbStr) > 0:
-        nbbbsStr    = dimensionsRE5.findall ( bbbStr[0] )
-        nbbbs   = n.int ( nbbbsStr[-2] )
-        limitr   = n.int( nbbbsStr[-1] )
+        nbbbsStr    = dimensionsRE4.findall ( bbbStr[0] )
+        nbbbs   = int ( nbbbsStr[-2] )
+        limitr   = int( nbbbsStr[-1] )
     else:
         print('no bounding box found or limiter. should be Line with 2 integers length of 10 characters')
         nbbbsStr = []
         nbbbs = 0  #should be there but cont if not
         limitr = 0
         
-    nWnHStr = dimensionsRE5.findall ( headerStr[0] )
+    nWnHStr = dimensionsRE4.findall ( headerStr[0][48:] )
 
-    nW  = n.int ( nWnHStr[1] )
-    nH  = n.int ( nWnHStr[2] )
+    nW  = int ( nWnHStr[1] )
+    nH  = int ( nWnHStr[2] )
     #idummy used as 1D size: nV, nW, nH
-    nV  = n.int ( nWnHStr[0] )
-    if nV <= 0:  nV = nW  
-   
-    rdim    = n.float ( dataStr[0] )
-    zdim    = n.float ( dataStr[1] )
+    nV  = int ( nWnHStr[0] )
+    if nV <= 0:  nV = nW  #disable non standard and meaningless
+    nV=nW
+    
+    rdim    = float ( dataStr[0] )
+    zdim    = float ( dataStr[1] )
 
-    if dodebug==True: print("Data string header:", dataStr[0:20] ),
-    if dodebug==True: print("nWnStr string header:", nWnHStr,headerStr)
-    if dodebug==True: print("Dimensions:", nW, nH, nV, nbbbs, limitr, rdim, zdim )
-    if dodebug==True: print("Size of data:", len(dataStr), 20+nV*5+nW*nH+2*nbbbs+2*limitr  )
+    if dodebug: 
+        print("Data string header:", dataStr[0:20] ),
+        print("nWnStr string header:", nWnHStr,headerStr, len(headerStr))
+        print("Dimensions:", nW, nH, nV, nbbbs, limitr, rdim, zdim )
+        print("Size of data:", len(dataStr), 20+nV*5+nW*nH+2*nbbbs+2*limitr  )
 
-    rcentr  = n.float ( dataStr[2] )
-    rleft   = n.float ( dataStr[3] )
-    zmid    = n.float ( dataStr[4] )
+    rcentr  = float ( dataStr[2] )
+    rleft   = float ( dataStr[3] )
+    zmid    = float ( dataStr[4] )
 
-    rmaxis  = n.float ( dataStr[5] )
-    zmaxis  = n.float ( dataStr[6] )
-    simag   = n.float ( dataStr[7] )
-    sibry   = n.float ( dataStr[8] )
-    bcentr  = n.float ( dataStr[9] )
+    rmaxis  = float ( dataStr[5] )
+    zmaxis  = float ( dataStr[6] )
+    simag   = float ( dataStr[7] )
+    sibry   = float ( dataStr[8] )
+    bcentr  = float ( dataStr[9] )
 
-    current = n.float ( dataStr[10] )
+    current = float ( dataStr[10] )
 
     fpol    = n.zeros ( nV )
     pres    = n.zeros ( nV )
