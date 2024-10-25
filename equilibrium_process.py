@@ -269,7 +269,7 @@ def getModB(eq):
     modB=modgradpsi/Rv
     if R[0]==0.0: #If origin is included in domain, be careful with |B| on axis.
         modB[:,0]=(np.diff(modgradpsi,axis=1)/(R[1]-R[0]))[:,0]
-    BV=( psi_int_z/Rv, -psi_int_r/Rv, fpolRZ/Rv)
+    BV=( -psi_int_z/Rv, +psi_int_r/Rv, fpolRZ/Rv)
     #Add components
     return modB,grad_psi,fpolRZ,Rv,Zv,BV
 
