@@ -226,7 +226,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
              'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z,
-             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos}}
+             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos}
 
     return eqdsk,fig
 
