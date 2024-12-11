@@ -51,7 +51,8 @@
 # RLIM: R of surrounding limiter contour in meter                      - RLIM
 # ZLIM: Z of surrounding limiter contour in meter                      - ZLIM
 
-def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dolimiter=None, ax=None, dodebug=False):
+def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, 
+           	cocos=1, dolimiter=None, ax=None, dodebug=False):
     import re
     import numpy as n
     import pylab as p
@@ -225,7 +226,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, dol
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
              'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z,
-             'fluxGrid':fluxGrid, 'iiInside':iiInside}
+             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos}}
 
     return eqdsk,fig
 
@@ -243,13 +244,16 @@ def getModB(eq):
     from scipy import interpolate
 
     #poloidal component
+    fluxfactor=1.0
+    if eq['cocos']==11: fluxfactor=2.*np.pi
+
     R=eq.get('r')
     Z=eq.get('z')
     Rv,Zv=np.meshgrid(R,Z) #these are R and Z on RZ mesh
     psiRZ=np.transpose(eq.get('psizr'))
     spline_psi = interpolate.RectBivariateSpline(R,Z,psiRZ.T,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
-    psi_int_r=spline_psi.ev(Rv,Zv,dx=1)
-    psi_int_z=spline_psi.ev(Rv,Zv,dy=1)
+    psi_int_r=spline_psi.ev(Rv,Zv,dx=1)/fluxfactor
+    psi_int_z=spline_psi.ev(Rv,Zv,dy=1)/fluxfactor
     grad_psi=np.sqrt(psi_int_z**2+psi_int_r**2)
     
     #toroidal component
