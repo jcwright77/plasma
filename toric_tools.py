@@ -8,21 +8,103 @@ import matplotlib.pyplot as plt
 import os
 from matplotlib import ticker, cm
 
-def cmap_xmap(function,cmap):
-    """ Applies function, on the indices of colormap cmap. Beware, function
-    should map the [0, 1] segment to itself, or you are in for surprises.
-    
-    See also cmap_xmap.
-    """
-    cdict = cmap._segmentdata
-    function_to_map = lambda x : (function(x[0]), x[1], x[2])
-    for key in ('red','green','blue'):
-        cdict[key] = map(function_to_map, cdict[key])
-        cdict[key].sort()
-        assert (cdict[key][0]<0 or cdict[key][-1]>1),\
-            "Resulting indices extend out of the [0, 1] segment."
 
-    return matplotlib.colors.LinearSegmentedColormap('colormap',cdict,1024)
+def print_vector(nrep,fstr,a):
+    """
+    Converts an array of numbers into a string formated by fstr with nrep values per line.
+    """
+    n=a.size
+    pa=""
+    ta=a.reshape((a.size),order='F')
+    for j in range(0,n,nrep):
+        pa=pa+ "".join(map(lambda f: fstr % f, ta[j:min(j+nrep,n)]))+"\n"
+    return pa
+
+
+def write_profnt(namelist,equidt,version='profnt2'):
+    """
+    Inputs:
+        namelist: as created by f90nml from toric.inp
+        equidt: python dictionary of profiles to write out
+            psipro: sqrt(Psipol/Psipol[a])
+            tbne: [cm-3] on psipro mesh
+            tbte: [keV]  on psipro mesh
+            iatm: array of atomic masses/ (C12/12)
+            iazi: array of atomic numbers
+            tbni: ion densities on psipro mesh
+            tbi_provv: ion temperatures on psipro mesh
+            nspec: number of ion species
+            
+         version: Generally format2 is used. File is self describing in number of elements and profiles.
+    """
+
+    filename=namelist['equidata']['profnt_file']
+    with open(filename,'w') as of:
+        nprodt=equidt['psipro'].size
+        profiles=['psipro','tbne','tbte','tbi_provv']
+        if version=='profnt1':
+            for profile in profiles:
+                of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
+                of.write(print_vector(5,'%16.9e',equidt[profile]))
+
+        if version=='profnt2':
+            nspec=equidt['nspec']
+            mainsp=1
+            namelist['equidata']['mainsp']=mainsp
+            kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
+            kdiff_itemp=equidt['kdiff_itemp'] #0 #one ion temp
+            of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.format('profnt_py',nprodt,nspec,
+                                                                 mainsp,kdiff_idens,kdiff_itemp))
+            for isp in range(nspec):
+                of.write('{:4d}{:4d}\n'.format(int(equidt['iatm'][isp]),int(equidt['iazi'][isp])) )
+            profiles=['psipro','tbne','tbte']
+            for profile in profiles:
+                of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
+                of.write(print_vector(5,'%16.9e',equidt[profile]))
+
+            #write ion densities and temperatures
+            for isp in range(nspec):
+                if kdiff_idens==0:
+                    of.write('{:<10s}\n'.format('ni_conc'+str(isp)))
+                    of.write('%16.9e \n' % equidt['tbni'][isp]) 
+                else:
+                    of.write('{:<10s}\n'.format('tbni'+str(isp)))
+                    of.write(print_vector(5,'%16.9e',equidt['tbni'][:,isp]))
+
+                if kdiff_itemp==0 and isp==0:
+                    of.write('{:<10s}\n'.format('ion_temp') )
+                    of.write(print_vector(5,'%16.9e',equidt['tbi_provv'])) 
+
+                if kdiff_itemp==1:
+                    of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
+                    of.write(print_vector(5,'%16.9e',equidt['tbi_provv'][:,isp])) 
+
+#this routine is still incomplete
+def read_equidt(filename):
+    import fortranformat as ff
+    equidt={}
+    with open(filename,'r') as of:
+        line = of.readline()
+        reader = ff.FortranRecordReader('(A10,5i4)')
+        var_name, nprodt, nspec, mainsp,kdiff_idens, kdiff_itemp = reader.read(line)
+        
+            
+        line = of.readline()
+        reader = ff.FortranRecordReader('(A10,5i4)')
+
+        if var_name=='Rfxqlo_Pro':
+        #  DMC -- define flag to indicate TRANSP format variant
+            print(' Detected: TRANSP "Rfxqlo_Pro" file format variant!')
+            kdiff_itemp = 1
+            kdiff_idens = 1
+            rfxqlo_pro_variant = True
+        else:
+            rfxqlo_pro_variant = False
+
+        if kdiff_itemp==0:
+            nsptmp = 1
+        else:
+            nsptmp = 10 # place holder nspec
 
 
 class toric_analysis:
