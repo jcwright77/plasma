@@ -60,15 +60,15 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
     file = open (filename)
     data    = file.read ()
 
-    dimensionsRE    = re.compile ( ' {1,3}\d?\d?\d?\d\d' ) # Equivilant to i5 fortran code, JCW these should be i4
-    dimensionsRE4    = re.compile ( ' {1,3}\d?\d?\d?\d' ) # Equivilant to i4 fortran code
+    dimensionsRE    = re.compile ( ' {1,3}\\d?\\d?\\d?\\d\\d' ) # Equivilant to i5 fortran code, JCW these should be i4
+    dimensionsRE4    = re.compile ( ' {1,3}\\d?\\d?\\d?\\d' ) # Equivilant to i4 fortran code
     headerRE    = re.compile ( '^.*\\n') # First line
     if width==9:
-        valuesRE   = re.compile ( '([ \-]\d\.\d{9}[eEdD][\+\-]\d\d)' )   # Equivilant to e16.9 fortran code
+        valuesRE   = re.compile ( '([ \-]\\d\.\\d{9}[eEdD][\+\-]\\d\\d)' )   # Equivilant to e16.9 fortran code
     else:
-        valuesRE   = re.compile ( '([ \-]\d\.\d{8}[eEdD][\+\-]\d\d)' )   # Equivilant to e16.8 fortran code
+        valuesRE   = re.compile ( '([ \-]\\d\.\\d{8}[eEdD][\+\-]\\d\\d)' )   # Equivilant to e16.8 fortran code
 
-#bbbsRE  = re.compile ( '( {1,3}\d?\d?\d?\d\d {1,3}\d?\d?\d?\d\d)' )   # Candidate dimension lines (2i5 fortran code)
+#bbbsRE  = re.compile ( '( {1,3}\\d?\\d?\\d?\\d\\d {1,3}\\d?\\d?\\d?\\d\\d)' )   # Candidate dimension lines (2i5 fortran code)
     bbbsRE  = re.compile ( r'(?m)^.{10}\n' ) #there should be only one 10 character line
 
     dataStr     = valuesRE.findall ( data )
