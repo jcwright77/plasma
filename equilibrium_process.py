@@ -64,9 +64,9 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
     dimensionsRE4    = re.compile ( ' {1,3}\\d?\\d?\\d?\\d' ) # Equivilant to i4 fortran code
     headerRE    = re.compile ( '^.*\\n') # First line
     if width==9:
-        valuesRE   = re.compile ( '([ \-]\\d\.\\d{9}[eEdD][\+\-]\\d\\d)' )   # Equivilant to e16.9 fortran code
+        valuesRE   = re.compile ( '([ \\-]\\d\\.\\d{9}[eEdD][\\+\\-]\\d\\d)' )   # Equivilant to e16.9 fortran code
     else:
-        valuesRE   = re.compile ( '([ \-]\\d\.\\d{8}[eEdD][\+\-]\\d\\d)' )   # Equivilant to e16.8 fortran code
+        valuesRE   = re.compile ( '([ \\-]\\d\\.\\d{8}[eEdD][\\+\\-]\\d\\d)' )   # Equivilant to e16.8 fortran code
 
 #bbbsRE  = re.compile ( '( {1,3}\\d?\\d?\\d?\\d\\d {1,3}\\d?\\d?\\d?\\d\\d)' )   # Candidate dimension lines (2i5 fortran code)
     bbbsRE  = re.compile ( r'(?m)^.{10}\n' ) #there should be only one 10 character line
@@ -136,28 +136,28 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
 
     for i in n.arange ( nV ) : 
     
-        fpol[i] = dataStr[n.cast['int'](i+20)]
-        pres[i] = dataStr[n.cast['int'](i+20+nV)]
-        ffprim[i] = dataStr[n.cast['int'](i+20+2*nV)]
-        pprime[i] = dataStr[n.cast['int'](i+20+3*nV)]
-        qpsi[i] = dataStr[n.cast['int'](i+20+4*nV+nW*nH)]
+        fpol[i] = dataStr[n.asarray(i+20,dtype=int)]
+        pres[i] = dataStr[n.asarray(i+20+nV,dtype=int)]
+        ffprim[i] = dataStr[n.asarray(i+20+2*nV,dtype=int)]
+        pprime[i] = dataStr[n.asarray(i+20+3*nV,dtype=int)]
+        qpsi[i] = dataStr[n.asarray(i+20+4*nV+nW*nH,dtype=int)]
 
     if dodebug: print('one D arrays: ', fpol[-1],pres[-1], ffprim[-1], pprime[-1], qpsi[-1] )
     for i in n.arange ( nbbbs ) :  
-        rbbbs[i]    = dataStr[n.cast['int'](i*2+20+5*nV+nW*nH)]
-        zbbbs[i]    = dataStr[n.cast['int'](i*2+1+20+5*nV+nW*nH)]
+        rbbbs[i]    = dataStr[n.asarray(i*2+20+5*nV+nW*nH,dtype=int)]
+        zbbbs[i]    = dataStr[n.asarray(i*2+1+20+5*nV+nW*nH,dtype=int)]
   
 
     for i in n.arange ( limitr ) :
        
-        rlim[i] = dataStr[n.cast['int'](i*2+20+5*nV+nW*nH+2*nbbbs)] 
-        zlim[i] = dataStr[n.cast['int'](i*2+1+20+5*nV+nW*nH+2*nbbbs)] 
+        rlim[i] = dataStr[n.asarray(i*2+20+5*nV+nW*nH+2*nbbbs,dtype=int)]
+        zlim[i] = dataStr[n.asarray(i*2+1+20+5*nV+nW*nH+2*nbbbs,dtype=int)]
 
 #   2D array
 
     for i in n.arange ( nW ) :
         for j in n.arange ( nH ) :
-            psizr[i,j] = dataStr[n.cast['int'](i+20+4*nV+j*nW)]
+            psizr[i,j] = dataStr[n.asarray(i+20+4*nV+j*nW,dtype=int)]
 
     rStep   = rdim / ( nW - 1 )
     zStep   = zdim / ( nH - 1 )
@@ -236,15 +236,15 @@ def getModB(eq):
     Calculate the magnitude of the magnetic field on the RZ mesh.
 
 
-        |B| = \sqrt(Fpol^2+(d\Psi/dZ)^2+(d\Psi/dR)^2)/R
+        |B| = \\sqrt(Fpol^2+(d\\Psi/dZ)^2+(d\\Psi/dR)^2)/R
 
     where Fpol== R*Bphi , Bpol = |grad Psi|/R
     """
     import numpy as np
     from scipy import interpolate
 
-    #poloidal component
-    fluxfactor=1.0
+    #poloidal componenti. for cocos=1/11 (R,phi,Z)
+    fluxfactor=1.0 ; 
     if eq['cocos']==11: fluxfactor=2.*np.pi
 
     R=eq.get('r')
@@ -273,7 +273,7 @@ def getModB(eq):
     modB=modgradpsi/Rv
     if R[0]==0.0: #If origin is included in domain, be careful with |B| on axis.
         modB[:,0]=(np.diff(modgradpsi,axis=1)/(R[1]-R[0]))[:,0]
-    BV=( -psi_int_z/Rv, +psi_int_r/Rv, fpolRZ/Rv)
+    BV=( +psi_int_z/Rv, fpolRZ/Rv, )-psi_int_r/Rv) #R,phi,Z for cocos1/11
     #Add components
     return modB,grad_psi,fpolRZ,Rv,Zv,BV
 
