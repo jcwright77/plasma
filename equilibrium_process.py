@@ -231,6 +231,128 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
     return eqdsk,fig
 
 
+def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3, 
+                doplot=None, dolimiter=None, ax=None, dodebug=False):
+    """
+    Read an eqdsk file for various cocos conventions, optionally produce a plot
+    dointerior returns list of i,j pts inside LCF.
+    cocos=3 is EFIT
+    ax is a figure handle to plot eq on
+
+    """
+    
+    import re
+    import numpy as np
+    import pylab as p
+    import fortranformat as ff
+
+
+    f2000=ff.FortranRecordReader('6a8,3i4')
+    f2020=ff.FortranRecordReader('5e16.9')
+    f2022=ff.FortranRecordReader('2i5')
+    xdum = np.zeros(5)
+    
+    def readVar(fmt,line):
+        return fmt.read(line)
+
+
+    def readArray(fmt,shp):
+        vals=[]
+        if len(shp)==1: N=shp[0]
+        if len(shp)==2: N=shp[0]*shp[1]
+        nlines = int(N/5)
+        if (N%5)!=0: nlines+=1        
+        for i in range( nlines ):
+            vals.extend(fmt.read(next(f)))
+        return np.reshape(np.array(vals[0:N]),shp)            
+
+        
+    with open(filename, "r") as f:
+        [casestr, idum, nw, nh]            =f2000.read(next(f))
+        [rdim,zdim,rcentr,rleft,zmid]      =f2020.read(next(f))
+        [rmaxis,zmaxis,simag,sibry,bcentr] =f2020.read(next(f))
+        [current,simag,xdum,rmaxis,xdum]   =f2020.read(next(f))
+        [zmaxis,xdum,sibry,xdum,xdum]      =f2020.read(next(f))
+        fpol    =readArray(f2020,[nw])
+        pres    =readArray(f2020,[nw])
+        ffprim  =readArray(f2020,[nw])
+        pprime  =readArray(f2020,[nw])
+        psizr   =readArray(f2020,[nw,nh])
+        qpsi    =readArray(f2020,[nw])
+        #check if bb present
+        [nbbbs,limitr]=f2020.read(next(f))
+        RZbnd   =readArray(f2020,[nbbbs*2]) #Rbnd,Zbnd)
+        RZlim   =readArray(f2020,[limitr*2]) #Rlim,Zlim)
+
+    if dodebug: 
+        print("Data string header:", rdim,zdim,rcentr,rleft,zmid )
+        print("Dimensions:", nw, nh, nbbbs, limitr, rdim, zdim )
+
+    rbbbs,zbbbs  = RZbnd[::2],RZbnd[1::2]
+    rlim,zlim    = RZlim[::2],RZlim[1::2]
+
+    if dodebug: print('one D arrays: ', fpol[-1],pres[-1], ffprim[-1], pprime[-1], qpsi[-1] )
+
+    rStep   = rdim / ( nw - 1 )
+    zStep   = zdim / ( nh - 1 )
+    fStep   = -( simag - sibry ) / ( nw - 1 )
+
+    r   = n.arange ( nw ) * rStep + rleft
+    z   = n.arange ( nh ) * zStep + zmid - zdim / 2.0
+
+    fluxGrid    = n.arange ( nw ) * fStep + simag
+
+#   Find indices of points inside and outside
+#   the rbbbs/zbbbs boundary.
+    import matplotlib.path as mplPath
+    import numpy as np
+    lcf=mplPath.Path( np.column_stack( (rbbbs,zbbbs) ) )
+    iiInsideA   = n.zeros ( psizr.shape )
+    iiInside = -1
+    iiOutside = -1
+    if (dointerior):
+        for i in n.arange ( nW ) :
+            for j in n.arange ( nH ) :
+                if lcf.contains_point( (r[i],z[i]) ):
+                    iiInsideA[i,j] = 1
+                
+        iiInside    = n.where ( iiInsideA > 0 )
+        iiOutside   = n.where ( iiInsideA == 0 )
+
+#   Plot output
+    fig='No figure'
+    if (doplot):
+        N=10
+        if not isinstance(doplot,bool):
+            if isinstance(doplot,int):
+                 N=doplot
+        if ax is None:
+            fig = p.figure()
+            ax = fig.add_subplot(111)
+            ax.set_aspect('equal')
+            p.contour ( r, z, psizr.T, N )
+            p.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+            if (dolimiter):
+                p.plot ( rlim, zlim, 'g', linewidth = 4 )
+            p.show ()
+        else:
+            ax.contour (r, z, psizr.T, N )
+            ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+            if (dolimiter):
+                ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
+
+
+    eqdsk = {'nW':nW, 'nH':nH, 'nbbbs':nbbbs, 'limitr':limitr, 'rdim':rdim,
+             'zdim':zdim, 'rcentr':rcentr, 'rleft':rleft, 'zmid':zmid, 
+             'rmaxis':rmaxis, 'zmaxis':zmaxis, 'simag':simag, 'sibry':sibry,
+             'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
+             'ffprim':ffprim, 'pprime':pprime, 'psirz':psizr.T, 'qpsi':qpsi, 'rbbbs':rbbbs,
+             'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z,
+             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos}
+
+    return eqdsk,fig
+
+
 def getModB(eq):
     """
     Calculate the magnitude of the magnetic field on the RZ mesh.
@@ -243,10 +365,11 @@ def getModB(eq):
     import numpy as np
     from scipy import interpolate
 
-    #poloidal componenti. for cocos=1/11 (R,phi,Z)
-    fluxfactor=1.0 ; 
-    if eq['cocos']==11: fluxfactor=2.*np.pi
-
+    #poloidal component. for cocos=[3] or 1/11 (R,phi,Z)
+    fluxfactor=1.0 ; sbp = +1
+    if eq['cocos']>=11   : fluxfactor=2.*np.pi
+    if eq['cocos']%10==3 : sbp=-1
+    
     R=eq.get('r')
     Z=eq.get('z')
     Rv,Zv=np.meshgrid(R,Z) #these are R and Z on RZ mesh
@@ -273,7 +396,7 @@ def getModB(eq):
     modB=modgradpsi/Rv
     if R[0]==0.0: #If origin is included in domain, be careful with |B| on axis.
         modB[:,0]=(np.diff(modgradpsi,axis=1)/(R[1]-R[0]))[:,0]
-    BV=( +psi_int_z/Rv, fpolRZ/Rv, -psi_int_r/Rv) #R,phi,Z for cocos1/11
+    BV=( +sbp*psi_int_z/Rv, fpolRZ/Rv, -sbp*psi_int_r/Rv) #R,phi,Z for cocos1/11 and 3/13
     #Add components
     return modB,grad_psi,fpolRZ,Rv,Zv,BV
 
@@ -365,7 +488,7 @@ def writeEQDSK(eq,fname):
         
     def writeVar(handle,varList):
         f.write(handle.write(varList))
-        f.write("\n")
+        f.write("\\n")
 
     def writeOrderedPairs(handle,var1,var2):
         longArrayOfPairs=[]
@@ -375,7 +498,7 @@ def writeEQDSK(eq,fname):
 
         writeVar(handle,longArrayOfPairs)
         
-    A52 = 'plasma.py_v1.1_:_01:01:17'.ljust(48)
+    A52 = 'plasma ep_v2.0_:_01:01:17'.ljust(48)
     f.write(A52[0:48])
     writeVar(ff.FortranRecordWriter('3i4'), [0,nr,nz] )
     writeVar(f2020,[rdim,zdim,rcentr,rleft,zmid])
