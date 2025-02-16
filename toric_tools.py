@@ -7,6 +7,23 @@ import scipy.io.netcdf as nc
 import matplotlib.pyplot as plt
 import os
 from matplotlib import ticker, cm
+#other deps below
+    #import f90nml
+    #from periodictable import elements    
+
+# Plasma species in template namelist
+def get_spec_toric(toricnml):
+    "Collect info on species for ICRF sim in TORIC in nice readable format"
+    #import f90nml
+    from periodictable import elements    
+    
+    spec_toric=list(zip(map(round,toricnml['equidata']['atm']),map(int,toricnml['equidata']['azi'])))
+    for i,s in enumerate(spec_toric):
+      name=str(elements[s[1]][s[0]])
+      spec_toric[i]={'name':name,'A':spec_toric[i][0],'Z':spec_toric[i][1],'Conc%':100*toricnml['equidata']['aconc'][i]}
+    
+    spec_toric.insert(0,{'name':'e', 'A':0, 'Z':-1 , 'Conc%': 100})
+    return spec_toric
 
 
 def print_vector(nrep,fstr,a):
@@ -35,7 +52,8 @@ def write_profnt(namelist,equidt,version='profnt2'):
             tbi_provv: ion temperatures on psipro mesh
             nspec: number of ion species
             
-         version: Generally format2 is used. File is self describing in number of elements and profiles.
+         version: Generally format2 is used. File is self describing in
+                  number of elements and profiles.
     """
 
     filename=namelist['equidata']['profnt_file']
@@ -48,7 +66,7 @@ def write_profnt(namelist,equidt,version='profnt2'):
                 of.write(print_vector(5,'%16.9e',equidt[profile]))
 
         if version=='profnt2':
-            nspec=equidt['nspec']
+            nspec=len(equidt['iatm'])
             mainsp=1
             namelist['equidata']['mainsp']=mainsp
             kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
@@ -60,7 +78,7 @@ def write_profnt(namelist,equidt,version='profnt2'):
             profiles=['psipro','tbne','tbte']
             for profile in profiles:
                 of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
-                of.write(print_vector(5,'%16.9e',equidt[profile]))
+                of.write(print_vector(5,'%16.9e',np.array(equidt[profile])))
 
             #write ion densities and temperatures
             for isp in range(nspec):
@@ -1039,7 +1057,7 @@ if __name__ == '__main__':
     except getopt.GetoptError:
         print ("Accepted flags are help and prefix=")
         sys.exit(2)
-	
+
     for opt, arg in opts:
         if opt in ("-p","--prefix"):
             iprefix=arg
@@ -1048,7 +1066,7 @@ if __name__ == '__main__':
         elif opt in ("-h","--help"):
             print(toric_tools.toric_analysis.__doc__)
             print('run \"help toric_tools.toric_analysis\" for help on whole class')
-	    
+
 #Load a run
     LHRun=toric_tools.toric_analysis(toric_name=ifile)
     LHRun.threeplots(prefix=iprefix)
