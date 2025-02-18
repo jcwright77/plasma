@@ -488,7 +488,7 @@ def writeEQDSK(eq,fname):
         
     def writeVar(handle,varList):
         f.write(handle.write(varList))
-        f.write("\\n")
+        f.write("\n")
 
     def writeOrderedPairs(handle,var1,var2):
         longArrayOfPairs=[]
