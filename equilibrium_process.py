@@ -226,7 +226,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
              'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z,
-             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos}
+             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos, 'name':filename}
 
     return eqdsk,fig
 
@@ -348,7 +348,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
              'ffprim':ffprim, 'pprime':pprime, 'psirz':psizr.T, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z,
-             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos}
+             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos, 'name':filename}
 
     return eqdsk,fig
 
@@ -422,6 +422,49 @@ def getLCF(eq):
         if bbPath.contains_point(cntr):
             lcf=(x,y)
             return lcf
+
+        
+def plotEQDSK(eq):
+    import pylab as plt
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+    fig.suptitle( 'EQDSK content for '+eq['name'] )
+    
+    modB,grad_psi,fpolRZ,Rv,Zv,BV=getModB(eq)
+    R=eq.get('r')
+    Z=eq.get('z')
+    nr2=int(eq['nW']/2)
+    nz2=int(eq['nH']/2)
+
+
+    ax1.grid()
+    ax1.set_title("Magnetic field components")
+    ax1.plot(R,modB[nz2-1,:],'purple',label='B')
+    ax1.plot(R,BV[1][nz2-1,:],'black',label='Btor')
+    ax1.plot(R,BV[2][nz2-1,:],'orange',label='BZ')
+    ax1.plot(R,BV[0][nz2-1,:],'red',label='BR')
+    ax1.legend()
+
+    ax2.set_title('Flux surfaces')
+    ax2.contour (eq['r'], eq['z'], eq['psizr'].T, 40 )
+    ax2.plot ( eq['rbbbs'], eq['zbbbs'], 'k', linewidth = 3 )
+    ax2.plot ( eq['rlim'], eq['zlim'], 'g', linewidth = 4 )
+    ax2.set_aspect('equal')
+    
+    ax3.set_title('Profiles')
+    ax3.plot(eq['fluxGrid'], eq['qpsi'],                    label='q')
+    ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],     label='F/F(0)')
+    ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],      label='p/p(0)')
+    ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0],label="FF' norm")
+    ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0],   label="p' norm")    
+    ax3.legend()
+    
+    ax4.set_title('Values from EQDSK header.')
+    hcol=0
+    for i, (key, value) in enumerate(eq.items()):
+        if i>15: break
+        if i>8: hcol=1
+        ax4.text(0.1+hcol*0.4, 1 - (i + 1) * 0.07+hcol*8*0.07, f'{key}: {value}', ha='left', va='center', fontsize=12)
+
 
 def writeEQDSK(eq,fname):
     """Write out the equilibrium in G-EQDSK format.

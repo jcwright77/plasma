@@ -502,6 +502,7 @@ class toric_analysis:
 
         return l
 
+    
     def psiplot( self, y ):
         "Plot versus rhopsi. Returns handle on line to modify line style if desired using setp."
         psi=self.namemap['xpsi']
@@ -512,6 +513,7 @@ class toric_analysis:
             
         return line
 
+    
     def plot_1Dfield( self, component ):
         "Field versus midplane specified."
 
@@ -726,7 +728,8 @@ class toric_analysis:
 #note that if plot commands are in the toplevel, they will not return
 #to the prompt, but wait to be killed.
     def plot_2Dfield(self, component='E2d_z',species=None,logl=0,xunits=1.0,axis=(0.0,0.0),
-                     im=False, scaletop=1.0, scalebot=1.0,ax='undef',fig='undef', lscaletop=0.0,lscalebot=0.0):
+                     im=False, scaletop=1.0, scalebot=1.0,ax='undef',fig='undef',
+                     maxsurface=0.99,lscaletop=0.0,lscalebot=0.0):
         """
     
         example of using netcdf python modules to plot toric solutions
@@ -757,6 +760,7 @@ class toric_analysis:
 
         xx  = self.cdf_hdl.variables[self.namemap['xplasma']].data
         yy  = self.cdf_hdl.variables[self.namemap['zplasma']].data
+
         print (self.mode,'mode')
         if (self.mode[:2]=='LH'):
             if (im):
@@ -798,7 +802,8 @@ class toric_analysis:
         dd=np.shape(xx)
         sx=dd[0]
         sy=dd[1]
-
+        lastpsi=int(sy*maxsurface); print(sx,sy,lastpsi)
+        
         xxx=np.zeros((sx+1,sy),'d')
         xxx[0:sx,:]=xx[:,:]
         xxx[sx,:]=xx[0,:]
@@ -812,8 +817,9 @@ class toric_analysis:
         ee2d=np.zeros((sx+1,sy),'d')
         ee2d[0:sx,:]=e2d[:,:]
         ee2d[sx,:]=e2d[0,:]
-        emax=ee2d.ravel()[ee2d.argmax()]
-        emin=ee2d.ravel()[ee2d.argmin()]
+        
+        emax=np.max(ee2d[:,:lastpsi].ravel()) #[ee2d.argmax()]
+        emin=np.min(ee2d[:,:lastpsi].ravel())#[ee2d.argmin()]
 
     #contouring levels
         rmax=max([abs(emax),abs(emin)])*scaletop
@@ -881,7 +887,7 @@ class toric_analysis:
 
         if (logl > 0):
 #            lee2d=np.sign(ee2d)*np.log(np.sqrt(np.abs(ee2d)**2+1)+np.abs(ee2d))/np.log(10)
-            lee2d=np.log(np.abs(ee2d)+0.1)/np.log(10)
+            lee2d=np.log(np.abs(ee2d)+1.0)/np.log(10)
             rmax=lee2d.ravel()[lee2d.argmax()]+lscaletop
             rmin=lee2d.ravel()[lee2d.argmin()]+lscalebot
             val=np.arange(rmin,rmax,(rmax-rmin)/(logl*1.0),'d')
@@ -902,8 +908,8 @@ class toric_analysis:
         
 ### user routines using the above, could be in a different module
     def powpoynt( self ):
-        "Plots electron power and poynting flux"
-        fig = plt.figure()
+        "Plots powers and poynting flux"
+        fig = plt.figure(figsize=(16,9) )
         ax1 = fig.add_subplot(111)
         line1,=self.psiplot(self.namemap['pelec'])
 #can use setp(lines, ) to change plot properties.
@@ -911,7 +917,7 @@ class toric_analysis:
      #   line1.setlabel('<ExB>')
 
 
-#add first two species if ICRF
+#add first two species if ICRF, add logic to plot if power percent is larger than 0.5%
         if (self.mode[:2]!='LH'):
            line2,=self.plotpower(power='PwIF',species=1)
 #           line3,=self.plotpower(power='PwIF',species=2)
@@ -933,11 +939,12 @@ class toric_analysis:
 #change color and symbol
         plt.setp(line2,color='r', label='<ExB>')
         ax2.set_ylabel('Poynting',color='r')
+        ax2.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
 
 #make  legend too
-        plt.legend( handles=[line1,line2,line4,line6] )
-        print(line1)
-        #fig.subplots_adjust(left=0.12,bottom=0.12,top=0.96,right=0.82,hspace=0.32)
+        plt.legend( handles=[line1,line2,line4,line6], loc='center right', 
+                     ncol=1, fancybox=True, shadow=True)
+        
         plt.tight_layout()
         plt.draw()
         return fig
@@ -960,7 +967,10 @@ class toric_analysis:
         ax2.set_ylabel('Poynting',color='r')
 #make  legend too
         plt.legend( (line1,line2), (r'$P_{eld}$','<ExB>'),loc=2 )
+        plt.axes().set_aspect(1, 'box')
         fig.subplots_adjust(left=0.12,bottom=0.12,top=0.96,right=0.82,hspace=0.32)
+        sax=plt.axes().set_aspect(1, 'box') 
+
         plt.draw()
         return fig
 
@@ -1021,15 +1031,15 @@ class toric_analysis:
         plt.savefig(prefix+'spectrum.png',format='png')
 
         if (self.mode[:2]!='LH'):        
-            self.plot_2Dfield(component='Eplus', im=True,logl=25)
+            self.plot_2Dfield(component='Eplus', maxsurface=0.9,im=True,logl=25)
             plt.draw()
             plt.savefig('log10Eplus2d.png',format='png')
-            self.plot_2Dfield(component='Eplus',scaletop=0.9)
+            self.plot_2Dfield(component='Eplus',maxsurface=0.9)#,scaletop=.8)
             plt.draw()
             plt.savefig('Eplus2d.png',format='png')
             
         
-        self.plot_2Dfield(im=True,logl=25)
+        self.plot_2Dfield(im=True,logl=25)#,scaletop=0.8)
         plt.draw()
         plt.savefig(prefix+'log10Ez2d.png',format='png')
 

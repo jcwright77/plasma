@@ -56,7 +56,7 @@ class cql3d:
 
 
     def cqlparam( self ):
-        "Fill a dictionary of cql scalar values, not implemented."
+        "Fill a dictionary of cql scalar values, not fully implemented."
         self.cqldict['comment']='Dictionary of cql3d outputs'
         self.cqldict['rmaj']=cqltest.cqlhdl.variables['radmaj'].getValue()
         self.cqldict['rmag']=cqltest.cqlhdl.variables['rmag'].getValue()
@@ -66,7 +66,7 @@ class cql3d:
 
 
 #option of using radius index of value (nearest). Time step needed?
-    def fplot( self, irad=-2, itime=-1, fig='none',var='none',ptype='contour' ):
+    def fplot( self, irad=-2, itime=-1, fig=False,var=False,ptype='contour' ):
         """Contour plot of the distribution function at given radius.
         irad may be either the radial index or value. Also plots other
         3D velocity space variables. Use type='line' to get 8 pitch angle
@@ -74,7 +74,7 @@ class cql3d:
 
         figscale=3 #scale up figure (1 in height originally)
 
-        if var=='none':
+        if !var:
             f     = self.cqlhdl.variables['f']
 
         if var=='B':
@@ -128,7 +128,7 @@ class cql3d:
 
 
 #for half plane plot aspect 2x1 and add space for colorbar legend
-        if (fig=='none'):
+        if (!fig):
             fig=plt.figure(figsize=(2.8*figscale,1*figscale)) 
             fig.subplots_adjust(bottom=0.15,hspace=0.3)
 #else type(fig)==matplotlib.figure.Figure then ok
