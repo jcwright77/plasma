@@ -64,17 +64,10 @@ class cql3d:
         return
 
 
-
-#option of using radius index of value (nearest). Time step needed?
-    def fplot( self, irad=-2, itime=-1, fig=False,var=False,ptype='contour' ):
-        """Contour plot of the distribution function at given radius.
-        irad may be either the radial index or value. Also plots other
-        3D velocity space variables. Use type='line' to get 8 pitch angle
-        slices""" 
-
+    def tplot( self, irad=-2, itime=None, species=None, fig=None, var=None, ptype='contour' ):
         figscale=3 #scale up figure (1 in height originally)
 
-        if !var:
+        if var==None or var=='f':
             f     = self.cqlhdl.variables['f']
 
         if var=='B':
@@ -87,6 +80,7 @@ class cql3d:
         u     = self.cqlhdl.variables['x'][:]
         pitch = self.cqlhdl.variables['y'][:]
         rya   = self.cqlhdl.variables['rya'][:]
+        enorm = self.cqlhdl.variables['enorm'].getValue()
 
 #f is on a polar coordinate mesh. We need to generate a 2D cartesian mapping
 #to vpar=u cos(pitch[ir,:]) and vperp = u sin(pitch[ir,:])
@@ -95,14 +89,82 @@ class cql3d:
 #just use the last surface, we are assuming theta mesh is the same on each surface
         nr = self.cqlhdl.dimensions['rdim']
         if (irad == -2):
-            irad = nr/2
+            irad = int(nr/2)
 
         if (type(irad)==float):
             irad=int(np.interp(irad,rya[:],np.arange(np.size(rya))))
 
         if (irad > nr-1):
             print ("irad too large, using nr/2=0.5",irad)
-            irad = nr/2
+            irad = int(nr/2)
+
+        r,t   = np.meshgrid(u,pitch[irad,:])
+        vpar  = np.transpose(r*np.cos(t))
+        vperp = np.transpose(r*np.sin(t))
+
+        species = 1
+
+        if (fig==None):
+            fig=plt.figure(figsize=(2.1*figscale,1*figscale))
+            fig.subplots_adjust(bottom=0.15,hspace=0.3)
+
+        ax = fig.add_subplot(111) #plot on existing canvas
+        v=(np.arange(30)/3.+7) #contouring levels, 6 appropriate for /cc
+        if (species!=None):
+            csf = ax.contourf(vpar,vperp,np.log10(abs(f[species,irad,:,:])+1.))
+        else:
+            csf = ax.contourf(vpar,vperp,np.log10(abs(f[irad,:,:])+1.))
+
+# make sure aspect ratio preserved
+        ax.set_aspect('equal')
+
+# draw a circle around the edge of the plot.
+        rmax = max(u)
+        theta=np.arange(100)*np.pi/99.
+        ax.plot(rmax*np.cos(theta),rmax*np.sin(theta),'k')
+
+        ax.set_title(str(f.long_name,'utf-8')+" ["+str(f.units,'utf-8')+"] at r="+str(rya[irad])[0:4],size=24)
+        ax.set_xlabel(r'$v_{||}/vnorm$',size=22)
+
+
+#option of using radius index of value (nearest). Time step needed?
+    def fplot( self, irad=None, itime=None, species=None, fig=None,var=None,ptype='contour',range=None ):
+        """Contour plot of the distribution function at given radius.
+        irad may be either the radial index or value. Also plots other
+        3D velocity space variables. Use type='line' to get 8 pitch angle
+        slices""" 
+
+        figscale=3 #scale up figure (1 in height originally)
+
+        if var==None or var=='f':
+            f     = self.cqlhdl.variables['f']
+
+        if var=='B':
+            f=self.cqlrfhdl.variables['rdcb']
+
+        if var=='rayB':
+            f=self.cqlrfhdl.variables['urfb']
+
+
+        u     = self.cqlhdl.variables['x'][:]
+        pitch = self.cqlhdl.variables['y'][:]
+        rya   = self.cqlhdl.variables['rya'][:]
+        enorm = self.cqlhdl.variables['enorm'].getValue()
+#f is on a polar coordinate mesh. We need to generate a 2D cartesian mapping
+#to vpar=u cos(pitch[ir,:]) and vperp = u sin(pitch[ir,:])
+#the numpy meshgrid command does this for us.
+
+#just use the last surface, we are assuming theta mesh is the same on each surface
+        nr = self.cqlhdl.dimensions['rdim']
+        if (irad == None):
+            irad = int(nr/2)
+
+        if (type(irad)==float):
+            irad=int(np.interp(irad,rya[:],np.arange(np.size(rya))))
+
+        if (irad > nr-1):
+            print ("irad too large, using nr/2=0.5",irad)
+            irad = int(nr/2)
 
         r,t = np.meshgrid(u,pitch[irad,:])
         vpar  = np.transpose(r*np.cos(t))
@@ -114,21 +176,24 @@ class cql3d:
             c  = 2.99792458e10
             vnorm = self.cqlhdl.variables['vnorm'].getValue()
             uscaled = np.array(u)*vnorm/c
-            for iy in np.arange(0,nt,nt/8):
-                plt.plot(uscaled,np.log10(f[irad,:,iy]),label=str(int(iy/float(nt)*8))+r'/8 $\pi$')
-                
+            for iy in np.arange(0,nt,int(nt/8)):
+                #print('species',species,irad,iy,f.shape)
+                if (species!=None):
+                    plt.plot(uscaled,np.log10(f[species,irad,:,iy]),label=str(int(iy/float(nt)*8))+r'/8 $\pi$')
+                else:
+                    plt.plot(uscaled,np.log10(f[irad,:,iy]),label=str(int(iy/float(nt)*8))+r'/8 $\pi$')
+
             plt.axis( ymin=0 )
-            plt.title(str(f.long_name)+" ["+str(f.units)+"]",size=24)
-            plt.xlabel(r'$\gamma v_{||}/c$',size=22)
-            plt.ylabel(r'$\gamma v_\bot/c$',size=22)
+            plt.title(str(f.long_name,'utf-8')+" ["+str(f.units,'utf-8')+"]",size=20)
+            plt.xlabel(r'$v_{||}/vnorm$ , enorm='+str(enorm),size=18)
+            plt.ylabel(r'$v_\bot/vnorm$, log10 scale' ,size=18)
             plt.legend(loc=1)
-            plt.draw()
             
-            return
+            return fig
 
 
 #for half plane plot aspect 2x1 and add space for colorbar legend
-        if (!fig):
+        if (fig==None):
             fig=plt.figure(figsize=(2.8*figscale,1*figscale)) 
             fig.subplots_adjust(bottom=0.15,hspace=0.3)
 #else type(fig)==matplotlib.figure.Figure then ok
@@ -136,7 +201,12 @@ class cql3d:
 
         ax = fig.add_subplot(111) #plot on existing canvas
         v=(np.arange(30)/3.+7) #contouring levels, 6 appropriate for /cc
-        csf = ax.contourf(vpar,vperp,np.log10(abs(f[irad,:,:])+1))
+
+        if (species!=None):        
+            csf = ax.contourf(vpar,vperp,np.log10(abs(f[species,irad,:,:])+1.))
+        else:
+            csf = ax.contourf(vpar,vperp,np.log10(abs(f[irad,:,:])+1.))
+
 #        cs = ax.contour(vpar,vperp,f[irad,:,:],v)
 # make sure aspect ratio preserved
         ax.set_aspect('equal')
@@ -145,17 +215,16 @@ class cql3d:
         rmax = max(u)
         theta=np.arange(100)*np.pi/99.
         ax.plot(rmax*np.cos(theta),rmax*np.sin(theta),'k')
-        plt.title(str(f.long_name)+" ["+str(f.units)+"] at r="+str(rya[irad])[0:4],size=24)
-        plt.xlabel(r'$\gamma v_{||}/c$',size=22)
-        plt.ylabel(r'$\gamma v_\bot/c$',size=22)
-        plt.axis([-1,1,0,1])
-#        cax = plt.axes([0.85, 0.2, 0.02, 0.6])
+        ax.set_title(str(f.long_name,'utf-8')+" ["+str(f.units,'utf-8')+"] at r="+str(rya[irad])[0:4],size=20)
+        ax.set_xlabel(r'$v_{||}/vnorm$, enorm='+str(enorm),size=14)
+        ax.set_ylabel(r'$v_\bot/vnorm$, log10 scale',size=14)
+
         cbar=plt.colorbar(csf,format='%4.2f',ax=ax) #,fraction=0.05
         cbar.ax.set_ylabel('log10 levels')
         plt.draw()
 #,orientation='horizontal')
 
-        return
+        return fig
     
 
     def pltpower( self, ispecies=0, itime=-1 ):

@@ -54,8 +54,8 @@
 def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, 
            	cocos=1, dolimiter=None, ax=None, dodebug=False):
     import re
-    import numpy as n
-    import pylab as p
+    import numpy as np
+    import pylab as plt
 
     file = open (filename)
     data    = file.read ()
@@ -116,16 +116,16 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
 
     current = float ( dataStr[10] )
 
-    fpol    = n.zeros ( nV )
-    pres    = n.zeros ( nV )
-    ffprim  = n.zeros ( nV )
-    pprime  = n.zeros ( nV )
-    psizr   = n.zeros ( ( nW, nH ) )
-    qpsi    = n.zeros ( nV )
-    rbbbs   = n.zeros ( nbbbs )
-    zbbbs   = n.zeros ( nbbbs )
-    rlim    = n.zeros ( limitr )
-    zlim    = n.zeros ( limitr )
+    fpol    = np.zeros ( nV )
+    pres    = np.zeros ( nV )
+    ffprim  = np.zeros ( nV )
+    pprime  = np.zeros ( nV )
+    psizr   = np.zeros ( ( nW, nH ) )
+    qpsi    = np.zeros ( nV )
+    rbbbs   = np.zeros ( nbbbs )
+    zbbbs   = np.zeros ( nbbbs )
+    rlim    = np.zeros ( limitr )
+    zlim    = np.zeros ( limitr )
 
 
 #   If you know how to cast a list of strings to
@@ -134,63 +134,63 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
 
 #   1D arrays
 
-    for i in n.arange ( nV ) : 
+    for i in np.arange ( nV ) : 
     
-        fpol[i] = dataStr[n.asarray(i+20,dtype=int)]
-        pres[i] = dataStr[n.asarray(i+20+nV,dtype=int)]
-        ffprim[i] = dataStr[n.asarray(i+20+2*nV,dtype=int)]
-        pprime[i] = dataStr[n.asarray(i+20+3*nV,dtype=int)]
-        qpsi[i] = dataStr[n.asarray(i+20+4*nV+nW*nH,dtype=int)]
+        fpol[i] = dataStr[np.asarray(i+20,dtype=int)]
+        pres[i] = dataStr[np.asarray(i+20+nV,dtype=int)]
+        ffprim[i] = dataStr[np.asarray(i+20+2*nV,dtype=int)]
+        pprime[i] = dataStr[np.asarray(i+20+3*nV,dtype=int)]
+        qpsi[i] = dataStr[np.asarray(i+20+4*nV+nW*nH,dtype=int)]
 
     if dodebug: print('one D arrays: ', fpol[-1],pres[-1], ffprim[-1], pprime[-1], qpsi[-1] )
-    for i in n.arange ( nbbbs ) :  
-        rbbbs[i]    = dataStr[n.asarray(i*2+20+5*nV+nW*nH,dtype=int)]
-        zbbbs[i]    = dataStr[n.asarray(i*2+1+20+5*nV+nW*nH,dtype=int)]
+    for i in np.arange ( nbbbs ) :  
+        rbbbs[i]    = dataStr[np.asarray(i*2+20+5*nV+nW*nH,dtype=int)]
+        zbbbs[i]    = dataStr[np.asarray(i*2+1+20+5*nV+nW*nH,dtype=int)]
   
 
-    for i in n.arange ( limitr ) :
+    for i in np.arange ( limitr ) :
        
-        rlim[i] = dataStr[n.asarray(i*2+20+5*nV+nW*nH+2*nbbbs,dtype=int)]
-        zlim[i] = dataStr[n.asarray(i*2+1+20+5*nV+nW*nH+2*nbbbs,dtype=int)]
+        rlim[i] = dataStr[np.asarray(i*2+20+5*nV+nW*nH+2*nbbbs,dtype=int)]
+        zlim[i] = dataStr[np.asarray(i*2+1+20+5*nV+nW*nH+2*nbbbs,dtype=int)]
 
 #   2D array
 
-    for i in n.arange ( nW ) :
-        for j in n.arange ( nH ) :
-            psizr[i,j] = dataStr[n.asarray(i+20+4*nV+j*nW,dtype=int)]
+    for i in np.arange ( nW ) :
+        for j in np.arange ( nH ) :
+            psizr[i,j] = dataStr[np.asarray(i+20+4*nV+j*nW,dtype=int)]
 
     rStep   = rdim / ( nW - 1 )
     zStep   = zdim / ( nH - 1 )
     fStep   = -( simag - sibry ) / ( nW - 1 )
 
-    r   = n.arange ( nW ) * rStep + rleft
-    z   = n.arange ( nH ) * zStep + zmid - zdim / 2.0
+    r   = np.arange ( nW ) * rStep + rleft
+    z   = np.arange ( nH ) * zStep + zmid - zdim / 2.0
 
-    fluxGrid    = n.arange ( nW ) * fStep + simag
+    fluxGrid    = np.arange ( nW ) * fStep + simag
 
 #   Find indices of points inside and outside
 #   the rbbbs/zbbbs boundary.
     import matplotlib.path as mplPath
     import numpy as np
     lcf=mplPath.Path( np.column_stack( (rbbbs,zbbbs) ) )
-    iiInsideA   = n.zeros ( psizr.shape )
+    iiInsideA   = np.zeros ( psizr.shape )
     iiInside = -1
     iiOutside = -1
     if (dointerior):
-        for i in n.arange ( nW ) :
-            for j in n.arange ( nH ) :
+        for i in np.arange ( nW ) :
+            for j in np.arange ( nH ) :
                 if lcf.contains_point( (r[i],z[i]) ):
                     iiInsideA[i,j] = 1
-                #q1  = n.size ( n.where ( ( r[i] - rbbbs > 0 ) & ( z[j] - zbbbs > 0 ) ) )
-                #q2  = n.size ( n.where ( ( r[i] - rbbbs > 0 ) & ( z[j] - zbbbs <= 0 ) ) )
-                #q3  = n.size ( n.where ( ( r[i] - rbbbs <= 0 ) & ( z[j] - zbbbs > 0 ) ) )
-                #q4  = n.size ( n.where ( ( r[i] - rbbbs <= 0 ) & ( z[j] - zbbbs <= 0 ) ) )
+                #q1  = np.size ( np.where ( ( r[i] - rbbbs > 0 ) & ( z[j] - zbbbs > 0 ) ) )
+                #q2  = np.size ( np.where ( ( r[i] - rbbbs > 0 ) & ( z[j] - zbbbs <= 0 ) ) )
+                #q3  = np.size ( np.where ( ( r[i] - rbbbs <= 0 ) & ( z[j] - zbbbs > 0 ) ) )
+                #q4  = np.size ( np.where ( ( r[i] - rbbbs <= 0 ) & ( z[j] - zbbbs <= 0 ) ) )
 
                 #if ( q1 > 0 ) & ( q2 > 0 ) & ( q3 > 0 ) & ( q4 > 0 ) :
                 #    iiInsideA[i,j]  = 1
                 
-        iiInside    = n.where ( iiInsideA > 0 )
-        iiOutside   = n.where ( iiInsideA == 0 )
+        iiInside    = np.where ( iiInsideA > 0 )
+        iiOutside   = np.where ( iiInsideA == 0 )
 
 #    print nW, nH, nbbbs, limitr
 #    print rdim, zdim, rcentr, rleft, zmid
@@ -204,14 +204,14 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
             if isinstance(doplot,int):
                  N=doplot
         if ax is None:
-            fig = p.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.set_aspect('equal')
-            p.contour ( r, z, psizr.T, N )
-            p.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+            plt.contour ( r, z, psizr.T, N )
+            plt.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
             if (dolimiter):
-                p.plot ( rlim, zlim, 'g', linewidth = 4 )
-            p.show ()
+                plt.plot ( rlim, zlim, 'g', linewidth = 4 )
+            plt.show ()
         else:
             ax.contour (r, z, psizr.T, N )
             ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
@@ -243,11 +243,11 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
     
     import re
     import numpy as np
-    import pylab as p
+    import pylab as plt
     import fortranformat as ff
 
 
-    f2000=ff.FortranRecordReader('6a8,3i4')
+    f2000=ff.FortranRecordReader('a48,3i4')
     f2020=ff.FortranRecordReader('5e16.9')
     f2022=ff.FortranRecordReader('2i5')
     xdum = np.zeros(5)
@@ -277,10 +277,10 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
         pres    =readArray(f2020,[nw])
         ffprim  =readArray(f2020,[nw])
         pprime  =readArray(f2020,[nw])
-        psizr   =readArray(f2020,[nw,nh])
+        psizr   =readArray(f2020,[nw,nh]).T # ff follows fortran indexing convention, so transpose to be consistent with usage
         qpsi    =readArray(f2020,[nw])
         #check if bb present
-        [nbbbs,limitr]=f2020.read(next(f))
+        [nbbbs,limitr]=f2022.read(next(f))
         RZbnd   =readArray(f2020,[nbbbs*2]) #Rbnd,Zbnd)
         RZlim   =readArray(f2020,[limitr*2]) #Rlim,Zlim)
 
@@ -297,27 +297,27 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
     zStep   = zdim / ( nh - 1 )
     fStep   = -( simag - sibry ) / ( nw - 1 )
 
-    r   = n.arange ( nw ) * rStep + rleft
-    z   = n.arange ( nh ) * zStep + zmid - zdim / 2.0
+    r   = np.arange ( nw ) * rStep + rleft
+    z   = np.arange ( nh ) * zStep + zmid - zdim / 2.0
 
-    fluxGrid    = n.arange ( nw ) * fStep + simag
+    fluxGrid    = np.arange ( nw ) * fStep + simag
 
 #   Find indices of points inside and outside
 #   the rbbbs/zbbbs boundary.
     import matplotlib.path as mplPath
     import numpy as np
     lcf=mplPath.Path( np.column_stack( (rbbbs,zbbbs) ) )
-    iiInsideA   = n.zeros ( psizr.shape )
+    iiInsideA   = np.zeros ( psizr.shape )
     iiInside = -1
     iiOutside = -1
     if (dointerior):
-        for i in n.arange ( nW ) :
-            for j in n.arange ( nH ) :
+        for i in np.arange ( nw ) :
+            for j in np.arange ( nh ) :
                 if lcf.contains_point( (r[i],z[i]) ):
                     iiInsideA[i,j] = 1
                 
-        iiInside    = n.where ( iiInsideA > 0 )
-        iiOutside   = n.where ( iiInsideA == 0 )
+        iiInside    = np.where ( iiInsideA > 0 )
+        iiOutside   = np.where ( iiInsideA == 0 )
 
 #   Plot output
     fig='No figure'
@@ -327,14 +327,14 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
             if isinstance(doplot,int):
                  N=doplot
         if ax is None:
-            fig = p.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.set_aspect('equal')
-            p.contour ( r, z, psizr.T, N )
-            p.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+            plt.contour ( r, z, psizr.T, N )
+            plt.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
             if (dolimiter):
-                p.plot ( rlim, zlim, 'g', linewidth = 4 )
-            p.show ()
+                plt.plot ( rlim, zlim, 'g', linewidth = 4 )
+            plt.show ()
         else:
             ax.contour (r, z, psizr.T, N )
             ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
@@ -342,12 +342,12 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
                 ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
 
 
-    eqdsk = {'nW':nW, 'nH':nH, 'nbbbs':nbbbs, 'limitr':limitr, 'rdim':rdim,
+    eqdsk = {'nW':nw, 'nH':nh, 'nbbbs':nbbbs, 'limitr':limitr, 'rdim':rdim,
              'zdim':zdim, 'rcentr':rcentr, 'rleft':rleft, 'zmid':zmid, 
              'rmaxis':rmaxis, 'zmaxis':zmaxis, 'simag':simag, 'sibry':sibry,
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
-             'ffprim':ffprim, 'pprime':pprime, 'psirz':psizr.T, 'qpsi':qpsi, 'rbbbs':rbbbs,
-             'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z,
+             'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
+             'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z, 'psirz':psizr.T,
              'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos, 'name':filename}
 
     return eqdsk,fig
@@ -372,8 +372,9 @@ def getModB(eq):
     
     R=eq.get('r')
     Z=eq.get('z')
-    Rv,Zv=np.meshgrid(R,Z) #these are R and Z on RZ mesh
-    psiRZ=np.transpose(eq.get('psizr'))
+    Rv,Zv=np.meshgrid(R,Z,indexing='ij') #these are R and Z on RZ mesh, first index for Z , default indexing
+    psiRZ=eq.get('psizr').T 
+    psiZR=eq.get('psizr')   
     spline_psi = interpolate.RectBivariateSpline(R,Z,psiRZ.T,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
     psi_int_r=spline_psi.ev(Rv,Zv,dx=1)/fluxfactor
     psi_int_z=spline_psi.ev(Rv,Zv,dy=1)/fluxfactor
@@ -388,7 +389,7 @@ def getModB(eq):
     #fill value is B0*R0
     spline_fpol=interpolate.interp1d(psi,fpol,bounds_error=False,fill_value=fpol[-1],kind='cubic')
     fpolRZ=[] #np.zeros(psiRZ.shape)
-    for psirow in psiRZ:
+    for psirow in psiZR:
         fpolRZ.append( spline_fpol(psirow) )
     fpolRZ=np.array(fpolRZ) #Fpol numpy array on RZ mesh
 
@@ -426,7 +427,7 @@ def getLCF(eq):
         
 def plotEQDSK(eq):
     import pylab as plt
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
+    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2,figsize=(10, 6))
     fig.suptitle( 'EQDSK content for '+eq['name'] )
     
     modB,grad_psi,fpolRZ,Rv,Zv,BV=getModB(eq)
@@ -438,10 +439,10 @@ def plotEQDSK(eq):
 
     ax1.grid()
     ax1.set_title("Magnetic field components")
-    ax1.plot(R,modB[nz2-1,:],'purple',label='B')
-    ax1.plot(R,BV[1][nz2-1,:],'black',label='Btor')
-    ax1.plot(R,BV[2][nz2-1,:],'orange',label='BZ')
-    ax1.plot(R,BV[0][nz2-1,:],'red',label='BR')
+    ax1.plot(R,modB [:,nz2-1],'purple',label='B')
+    ax1.plot(R,BV[1][:,nz2-1],'black',label='Btor')
+    ax1.plot(R,BV[2][:,nz2-1],'orange',label='BZ')
+    ax1.plot(R,BV[0][:,nz2-1],'red',label='BR')
     ax1.legend()
 
     ax2.set_title('Flux surfaces')
@@ -458,12 +459,12 @@ def plotEQDSK(eq):
     ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0],   label="p' norm")    
     ax3.legend()
     
-    ax4.set_title('Values from EQDSK header.')
+    ax4.set_text(0.5,0.9,'Values from EQDSK header.',ha='center')
     hcol=0
     for i, (key, value) in enumerate(eq.items()):
-        if i>15: break
+        if i>14: break
         if i>8: hcol=1
-        ax4.text(0.1+hcol*0.4, 1 - (i + 1) * 0.07+hcol*8*0.07, f'{key}: {value}', ha='left', va='center', fontsize=12)
+        ax4.text(0.1+hcol*0.4, 1 - (i + 1) * 0.09+hcol*8*0.09, f'{key}: {value}', ha='left', va='center', fontsize=12)
 
 
 def writeEQDSK(eq,fname):
@@ -583,9 +584,9 @@ def resize(nx,eq):
     rStep   = rdim / ( nW - 1 )
     zStep   = zdim / ( nH - 1 )
     fStep   = -( simag - sibry ) / ( nW - 1 )
-    r   = n.arange ( nW ) * rStep + rleft
-    z   = n.arange ( nH ) * zStep + zmid - zdim / 2.0
-    fluxGrid    = n.arange ( nW ) * fStep + simag
+    r   = np.arange ( nW ) * rStep + rleft
+    z   = np.arange ( nH ) * zStep + zmid - zdim / 2.0
+    fluxGrid    = np.arange ( nW ) * fStep + simag
 
     neweq['r']=r
     neweq['z']=z
