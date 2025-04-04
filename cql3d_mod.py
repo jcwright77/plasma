@@ -226,13 +226,13 @@ class cql3d:
 
         return fig
     
-    def fplot_contour(self,F,idx,crange=[10,16],nlev=20):
+    def fplot_contour(self,idx,crange=[10,16],nlev=20):
         from matplotlib import patches
         import matplotlib.pyplot as plt
 
-        fdist = F.variables['f']
-        u     = F.variables['x'][:]
-        pitch = F.variables['y'][:]
+        fdist = self.cqlhdl.variables['f']
+        u     = self.cqlhdl.variables['x'][:]
+        pitch = self.cqlhdl.variables['y'][:]
         r,t = np.meshgrid(u,pitch[idx,:]) #important to have idx
         vpar0  = np.transpose(r*np.cos(t))
         vperp0 = np.transpose(r*np.sin(t))
@@ -245,7 +245,7 @@ class cql3d:
         ax.add_patch(bc)
         ax.set_xticks(np.arange(-1, 1, 0.1),minor=True)
 
-        db= F3he.cqlhdl.variables['bbpsi'][ir,-1]-1
+        db= self.cqlhdl.variables['bbpsi'][ir,-1]-1
         PTslope0=(1./np.sqrt(db))
         ydb=1./np.sqrt(1+PTslope0**2)
         plt.plot( [0, ydb],[0,PTslope0*ydb],'r')
