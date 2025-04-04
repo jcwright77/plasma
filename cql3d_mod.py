@@ -226,7 +226,7 @@ class cql3d:
 
         return fig
     
-    def fplot_contour(F,idx,crange=[10,16],nlev=20):
+    def fplot_contour(self,F,idx,crange=[10,16],nlev=20):
         from matplotlib import patches
         import matplotlib.pyplot as plt
 
