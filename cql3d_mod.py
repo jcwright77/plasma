@@ -226,6 +226,36 @@ class cql3d:
 
         return fig
     
+    def fplot_contour(self,idx,crange=[10,16],nlev=20):
+        from matplotlib import patches
+        import matplotlib.pyplot as plt
+
+        fdist = self.cqlhdl.variables['f']
+        u     = self.cqlhdl.variables['x'][:]
+        pitch = self.cqlhdl.variables['y'][:]
+        r,t = np.meshgrid(u,pitch[idx,:]) #important to have idx
+        vpar0  = np.transpose(r*np.cos(t))
+        vperp0 = np.transpose(r*np.sin(t))
+        plt.contour(vpar0,vperp0,np.log10(fdist[0,idx,:,:]+1),np.linspace(crange[0],
+                                                            crange[1],nlev));
+        plt.colorbar();
+
+        bc=patches.Arc((0, 0), 2.0, 2.0, theta1=0, theta2=180, facecolor='None', edgecolor='k', lw=3)
+        ax=plt.gca()
+        ax.add_patch(bc)
+        ax.set_xticks(np.arange(-1, 1, 0.1),minor=True)
+
+        db= self.cqlhdl.variables['bbpsi'][ir,-1]-1
+        PTslope0=(1./np.sqrt(db))
+        ydb=1./np.sqrt(1+PTslope0**2)
+        plt.plot( [0, ydb],[0,PTslope0*ydb],'r')
+        plt.plot( [0,-ydb],[0,PTslope0*ydb],'r');
+
+        plt.ylabel(r'$v_{\bot 0}$');plt.xlabel(r'$v_{\| 0}$');
+        plt.grid(which='minor');
+        plt.grid(which='major');
+        plt.gca().set_aspect('equal');
+
 
     def pltpower( self, ispecies=0, itime=-1 ):
         "Plot power deposition."
