@@ -126,68 +126,6 @@ def read_equidt(filename):
 
 
 
-#Handling equigs file
-def __get_varname(self, f):
-    "Reads next line from file f and returns it, optionally printing it."
-    varname=f.readline()
-    if self.idebug:
-        print (f.name,varname)
-    return varname
-
-    
-def read_equigs(self, equigsfile='equigs.data'):
-    "Read the equilibrium file created by toric in toricmode='equil',isol=0."
-    if self.idebug:
-        print ("Using ", equigsfile)
-    equigs_hdl=open(equigsfile,'r')
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
-    imom = self.equigs["imom"]
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
-    nmhd = self.equigs["nmhd"]
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-    #this needs to be reshaped or remapped into the R,Z sin cos arrays toric uses
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
-                                                count=2*nmhd+4*nmhd*imom,dtype=float)
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-    #logic checking for "END"
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-    varname = self.__get_varname(equigs_hdl)
-    self.equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-    equigs_hdl.close()
-
-
 def formattedwrite(file,a):
   sza=len(a)
   for idx in range(0,int(sza/4)*4,4):
@@ -1049,6 +987,69 @@ class toric_analysis:
         plt.savefig(prefix+'powerpoynt.png',format='png')
 
         return
+
+
+    
+#Handling equigs file
+    def __get_varname(self, f):
+        "Reads next line from file f and returns it, optionally printing it."
+        varname=f.readline()
+        if self.idebug:
+            print (f.name,varname)
+        return varname
+
+    
+    def read_equigs(self, equigsfile='equigs.data'):
+        "Read the equilibrium file created by toric in toricmode='equil',isol=0."
+        if self.idebug:
+            print ("Using ", equigsfile)
+        equigs_hdl=open(equigsfile,'r')
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
+        imom = self.equigs["imom"]
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
+        nmhd = self.equigs["nmhd"]
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
+
+        #this needs to be reshaped or remapped into the R,Z sin cos arrays toric uses
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
+                                                count=2*nmhd+4*nmhd*imom,dtype=float)
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
+
+        #logic checking for "END"
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
+
+        varname = self.__get_varname(equigs_hdl)
+        self.equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
+
+        equigs_hdl.close()
 
 
 ####main block

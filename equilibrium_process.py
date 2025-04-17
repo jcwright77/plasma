@@ -452,19 +452,20 @@ def plotEQDSK(eq):
     ax2.set_aspect('equal')
     
     ax3.set_title('Profiles')
-    ax3.plot(eq['fluxGrid'], eq['qpsi'],                    label='q')
-    ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],     label='F/F(0)')
-    ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],      label='p/p(0)')
-    ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0],label="FF' norm")
-    ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0],   label="p' norm")    
+    ax3.plot(eq['fluxGrid'], eq['qpsi'],                   label='q')
+    ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],    label='F/F(0)')
+    ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],     label='p/p(0)')
+    ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], label="FF' norm")
+    ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0], label="p' norm")    
     ax3.legend()
     
     ax4.text(0.5,0.9,'Values from EQDSK header.',ha='center')
     hcol=0
     for i, (key, value) in enumerate(eq.items()):
-        if i>14: break
+        if i>15: break
         if i>8: hcol=1
-        ax4.text(0.1+hcol*0.4, 0.9 - (i + 1) * 0.09+hcol*8*0.09, f'{key}: {value:5.2f}', ha='left', va='center', fontsize=12)
+        ax4.text(0.1+hcol*0.4, 0.9 - (i + 1) * 0.09+hcol*8*0.09,
+                 f'{key}: {value:5.2f}', ha='left', va='center', fontsize=12)
 
 
 def writeEQDSK(eq,fname):
