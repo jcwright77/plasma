@@ -7,24 +7,11 @@ import scipy.io.netcdf as nc
 import matplotlib.pyplot as plt
 import os
 from matplotlib import ticker, cm
+import f90nml
+
 #other deps below
     #import f90nml
     #from periodictable import elements    
-
-# Plasma species in template namelist
-def get_spec_toric(toricnml):
-    "Collect info on species for ICRF sim in TORIC in nice readable format"
-    #import f90nml
-    from periodictable import elements    
-    
-    spec_toric=list(zip(map(round,toricnml['equidata']['atm']),map(int,toricnml['equidata']['azi'])))
-    for i,s in enumerate(spec_toric):
-      name=str(elements[s[1]][s[0]])
-      spec_toric[i]={'name':name,'A':spec_toric[i][0],'Z':spec_toric[i][1],'Conc%':100*toricnml['equidata']['aconc'][i]}
-    
-    spec_toric.insert(0,{'name':'e', 'A':0, 'Z':-1 , 'Conc%': 100})
-    return spec_toric
-
 
 def print_vector(nrep,fstr,a):
     """
@@ -36,6 +23,43 @@ def print_vector(nrep,fstr,a):
     for j in range(0,n,nrep):
         pa=pa+ "".join(map(lambda f: fstr % f, ta[j:min(j+nrep,n)]))+"\n"
     return pa
+
+
+def ListToFormattedString(alist,fstr):
+    # Create a format spec for each item in the input `alist`.
+    # E.g., each item will be right-adjusted, field width=3.
+    format_list = [fstr for item in alist] 
+
+    # Now join the format specs into a single string:
+    # E.g., '{:>3}, {:>3}, {:>3}' if the input list has 3 items.
+    s = ', '.join(format_list)
+
+    # Now unpack the input list `alist` into the format string. Done!
+    return s.format(*alist)
+
+
+def formattedwrite(file,a):
+  sza=len(a)
+  for idx in range(0,int(sza/4)*4,4):
+    file.write(f"{a[idx]:18.9E}{a[idx+1]:18.9E}{a[idx+2]:18.9E}{a[idx+3]:18.9E}\n")
+  rem = np.mod(sza,4)
+  if rem>0:
+    file.write(''.join([ "%18.9E" % x for x in a[-rem:] ])+"\n") #print remaining elements
+
+
+# Plasma species in template namelist
+def get_spec_toric(toricnml):
+    "Collect info on species for ICRF sim in TORIC in nice readable format"
+
+    from periodictable import elements    
+    
+    spec_toric=list(zip(map(round,toricnml['equidata']['atm']),map(int,toricnml['equidata']['azi'])))
+    for i,s in enumerate(spec_toric):
+      name=str(elements[s[1]][s[0]])
+      spec_toric[i]={'name':name,'A':spec_toric[i][0],'Z':spec_toric[i][1],'Conc%':100*toricnml['equidata']['aconc'][i]}
+    
+    spec_toric.insert(0,{'name':'e', 'A':0, 'Z':-1 , 'Conc%': 100})
+    return spec_toric
 
 
 def write_profnt(namelist,equidt,version='profnt2'):
@@ -96,6 +120,7 @@ def write_profnt(namelist,equidt,version='profnt2'):
                 if kdiff_itemp==1:
                     of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
                     of.write(print_vector(5,'%16.9e',equidt['tbi_provv'][:,isp])) 
+
 
 #this routine is still incomplete
 def read_equidt(filename):
@@ -339,6 +364,7 @@ class toric_analysis:
         self.label = True
         self.equigs = {}
         self.toricdict={}
+        self.nml=f90nml.read(path+'/'+'torica.inp')
 
         if (self.mode[:2]=='LH'):
             self.namemap={'xpsi':'tpsi','poynt':'vpoynt','pelec':'S_eld',
@@ -410,6 +436,15 @@ class toric_analysis:
 
         print ('----------------------------------------------')
         print ("Provenance metadata: ", self.prov)
+
+        print ('----------------------------------------------')
+        print ('TORIC parameters')
+
+        print ('----------------------------------------------')
+        print ('Power partitions')
+        for var in ['TPwIF', 'TPwIH', 'TPwEFW', 'TPwEIBW']:
+            print("{0:} {1:>3} ".format(case2self.cdf_hdl.variables[var].long_name.decode('UTF-8') ,  
+                            ListToFormattedString(case2self.cdf_hdl.variables[var].data,'{:.2f}%') ) )
 
         return
 
@@ -761,7 +796,7 @@ class toric_analysis:
         xx  = self.cdf_hdl.variables[self.namemap['xplasma']].data
         yy  = self.cdf_hdl.variables[self.namemap['zplasma']].data
 
-        print (self.mode,'mode')
+        if self.idebug: print (self.mode,'mode')
         if (self.mode[:2]=='LH'):
             if (im):
                 im_e2dname=component+'_im'
@@ -787,11 +822,11 @@ class toric_analysis:
             e2d = abs(e2d+1.0j*im_e2d)
 
         if (self.mode[:2]!='LH' and species):
-            print('plot2D, indexing species', species)
+            if self.idebug: print('plot2D, indexing species', species)
             e2d = e2d[:,:,species-1]
 
 
-        print ("2D Matrix shape:", np.shape(xx))
+        if self.idebug: print ("2D Matrix shape:", np.shape(xx))
 
 
     #contour with 3 args is confused unless arrays are indexed slices
@@ -802,7 +837,7 @@ class toric_analysis:
         dd=np.shape(xx)
         sx=dd[0]
         sy=dd[1]
-        lastpsi=int(sy*maxsurface); print(sx,sy,lastpsi)
+        lastpsi=int(sy*maxsurface); if self.idebug: print(sx,sy,lastpsi)
         
         xxx=np.zeros((sx+1,sy),'d')
         xxx[0:sx,:]=xx[:,:]
@@ -828,7 +863,7 @@ class toric_analysis:
         val=np.arange(-rmax*1.1,rmax*1.1,(rmax+rmax)/25.,'d')
         if (im):
             val=np.arange(rmin,rmax*1.1,(rmax)/24.,'d')
-            print ("values",val)
+            if self.idebug: print ("values",val)
 
     #reverse redblue map so red is positive
            # revRBmap=cmap_xmap(lambda x: 1.-x, cm.get_cmap('RdBu'))
@@ -837,9 +872,9 @@ class toric_analysis:
         cwidth=xxx.max()-xxx.min()
         cheight=yyy.max()-yyy.min()
         asp=cheight/cwidth
-        print ("plot aspect ratio:", asp)
+        if self.idebug: print ("plot aspect ratio:", asp)
 
- #leave space for bar
+    #leave space for bar
         if (fig=='undef'):
             fig=plt.figure(figsize=(self.fsc*3.0+legend_frac,3.0*self.fsc*asp))
             fig.subplots_adjust(left=0.02,bottom=0.15,top=0.90)
@@ -858,15 +893,12 @@ class toric_analysis:
         anthw=max(int(sx*0.01),4)
         plt.plot(xxx[sx-anthw+1:sx+1,maxpsi],yyy[sx-anthw+1:sx+1,maxpsi],'g-',linewidth=6)
         plt.plot(xxx[0:anthw,maxpsi],yyy[0:anthw,maxpsi],'g-',linewidth=6)
-        print("antenna: ", yyy[sx-anthw+1:sx+1,maxpsi])
+        if self.idebug: print("antenna: ", yyy[sx-anthw+1:sx+1,maxpsi])
         if self.label:
             ax=plt.gca()
             sublabel=self.prov['path']
-            print (sublabel)
+            if self.idebug: print (sublabel)
             plt.text(-0.2,-0.2,sublabel,transform = ax.transAxes)
-
-        print ("interactive off while plotting")
-#        plt.ioff()
 
         if (logl > 0):
             title='log10 '+title
@@ -878,12 +910,11 @@ class toric_analysis:
     #title(getattr(e2d,'long_name')+'('+getattr(e2d,'units')+')')
         plt.xlabel('X(cm)')
         plt.ylabel('Z(cm)')
-#        plt.title(r'$Re E_{||}$',fontsize=self.mypt+2.0)
         plt.title(title,fontsize=self.mypt+2.0)
 
 
         if (logl <= 0):
-            CS=plt.contourf(xxx,yyy,ee2d,val,cmap=cm.jet) #30APR2009 removed *0.2
+            CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],ee2d[:,:lastpsi],val,cmap=cm.jet) #30APR2009 removed *0.2
 
         if (logl > 0):
 #            lee2d=np.sign(ee2d)*np.log(np.sqrt(np.abs(ee2d)**2+1)+np.abs(ee2d))/np.log(10)
@@ -892,15 +923,14 @@ class toric_analysis:
             rmin=lee2d.ravel()[lee2d.argmin()]+lscalebot
             val=np.arange(rmin,rmax,(rmax-rmin)/(logl*1.0),'d')
             CS=plt.contourf(xxx,yyy,lee2d,val,cmap=cm.jet)
-        print ("interactive on")
-#        plt.ion()
+
 ##put the contour scales on the plot
 #tricky, fraction needs to be specified to be part by which horizontal exceed vertical
 
         cbar=plt.colorbar(CS,format=barfmt,ax=sax)
         cbar.ax.set_ylabel('levels')
 
-        print ("contour values",CS.levels,'xx',rmax,rmin)
+        if self.idebug: print ("contour values",CS.levels,'xx',rmax,rmin)
 
         return CS,cbar
 
