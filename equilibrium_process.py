@@ -353,7 +353,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
     return eqdsk,fig
 
 
-def getModB(eq):
+def getModB(eq,dict=False):
     """
     Calculate the magnitude of the magnetic field on the RZ mesh.
 
@@ -443,7 +443,7 @@ def plotEQDSK(eq):
     ax1.plot(R,BV[1][:,nz2-1],'black',label='Btor')
     ax1.plot(R,BV[2][:,nz2-1],'orange',label='BZ')
     ax1.plot(R,BV[0][:,nz2-1],'red',label='BR')
-    ax1.legend()
+    ax1.legend(bbox_to_anchor=(-0.1,0.5))
 
     ax2.set_title('Flux surfaces')
     ax2.contour (eq['r'], eq['z'], eq['psizr'].T, 40 )
@@ -452,14 +452,15 @@ def plotEQDSK(eq):
     ax2.set_aspect('equal')
     
     ax3.set_title('Profiles')
-    ax3.plot(eq['fluxGrid'], eq['qpsi'],                    label='q')
-    ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],     label='F/F(0)')
-    ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],      label='p/p(0)')
-    ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0],label="FF' norm")
-    ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0],   label="p' norm")    
-    ax3.legend()
+    ax3.plot(eq['fluxGrid'], eq['qpsi'],                   label='q')
+    ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],    label='F/F(0)')
+    ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],     label='p/p(0)')
+    ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], label="FF' norm")
+    ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0], label="p' norm")    
+    ax3.legend(bbox_to_anchor=(-0.1,0.5))
     
-    ax4.set_text(0.5,0.9,'Values from EQDSK header.',ha='center')
+    ax4.text(0.5,0.9,'Values from EQDSK header.',ha='center')
+    ax4.axis("off")
     hcol=0
     for i, (key, value) in enumerate(eq.items()):
         if i>14: break
