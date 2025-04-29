@@ -465,7 +465,8 @@ def plotEQDSK(eq):
     for i, (key, value) in enumerate(eq.items()):
         if i>14: break
         if i>8: hcol=1
-        ax4.text(0.1+hcol*0.4, 1 - (i + 1) * 0.09+hcol*8*0.09, f'{key}: {value}', ha='left', va='center', fontsize=12)
+        ax4.text(0.1+hcol*0.4, 0.9 - (i + 1) * 0.09+hcol*8*0.09,
+                 f'{key}: {value:5.2f}', ha='left', va='center', fontsize=12)
 
 
 def writeEQDSK(eq,fname):
