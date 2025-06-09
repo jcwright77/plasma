@@ -39,13 +39,31 @@ class cql3d:
     
     def info( self ):
         "Prints a list of the contents of present CQL3D output files"
-
+        f= self.cqlhdl.variables['f']
         if (self.cqlhdl != -1):
             print ('The cql file, ',self.cqlname,', contains:')
             print ('----------------------------------')
             print ("The global attributes: ",self.cqlhdl.dimensions.keys())
             print ("File contains the variables: ", self.cqlhdl.variables.keys())
 
+            print("-"*80)
+            np.set_printoptions(precision=3)
+            print('About f:',str(f.comment,'utf-8'))
+            print(f.dimensions)
+            print(str(f.long_name,'utf-8'))
+            print(str(f.units,'utf-8'))
+            for d in f.dimensions:
+                print(d,F.cqlhdl.dimensions[d])
+
+            print('Normalization vnorm/c = %10.4e' % (self.cqlhdl.variables['vnorm'].getValue()/ccm))
+            print('Normalization enorm = %10.4e' % self.cqlhdl.variables['enorm'].getValue(),
+                  str( self.cqlhdl.variables['enorm'].units, 'utf-8'))
+
+            print (self.cqlhdl.variables['radcoord'][:].tobytes().decode('ascii'))
+
+            print("CQL betas ", np.round(beta0cql,2))
+            print("-"*80)
+            
         if (self.cqlrfhdl != -1):
             print ('The cql file, ',self.cqlrfname,', contains:')
             print ('----------------------------------')

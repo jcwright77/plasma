@@ -56,7 +56,11 @@ def get_spec_toric(toricnml):
     spec_toric=list(zip(map(round,toricnml['equidata']['atm']),map(int,toricnml['equidata']['azi'])))
     for i,s in enumerate(spec_toric):
       name=str(elements[s[1]][s[0]])
-      spec_toric[i]={'name':name,'A':spec_toric[i][0],'Z':spec_toric[i][1],'Conc%':100*toricnml['equidata']['aconc'][i]}
+      if False:
+          print('name',i,name,len(100*toricnml['equidata']['aconc']),
+                100*toricnml['equidata']['aconc'][i] )
+      spec_toric[i]={'name':name,'A':spec_toric[i][0],'Z':spec_toric[i][1],
+                     'Conc%':100*toricnml['equidata']['aconc'][i]}
     
     spec_toric.insert(0,{'name':'e', 'A':0, 'Z':-1 , 'Conc%': 100})
     return spec_toric
@@ -150,14 +154,6 @@ def read_equidt(filename):
             nsptmp = 10 # place holder nspec
 
 
-
-def formattedwrite(file,a):
-  sza=len(a)
-  for idx in range(0,int(sza/4)*4,4):
-    file.write(f"{a[idx]:18.9E}{a[idx+1]:18.9E}{a[idx+2]:18.9E}{a[idx+3]:18.9E}\n")
-  rem = np.mod(sza,4)
-  if rem>0:
-    file.write(''.join([ "%18.9E" % x for x in a[-rem:] ])+"\n") #print remaining elements
 
 def write_equigs(eq,equigsfile):
   """ eg format
@@ -257,6 +253,26 @@ def write_equigs(eq,equigsfile):
   return equigs
 
 
+def stix_temperature(Prf,Te,ne,A,Z,Chi):
+    """
+    1.32e9*np.sqrt(3.14159)/(5.64e4**2*1.32e3**2)*2*np.sqrt(3.14159)*3.14159/20/9.11e-28* 1e7/1e28
+    np.float64(0.2580171035248835)
+
+    = 0.2 6* (20/ln Lambda) . . .
+    $$
+    xi_{mathrm{mino}}^{mathrm{(Stix)}} approx{
+    frac{0.24  (20/lnLambda) , [ T_{e}(mathrm{keV}) ]^{1/2}
+             A_{mathrm{mino}} langle P_{mathrm{RF}} rangle_{mathrm{MW/m^{3}}}}
+         {n_{e,20}^{2} , Z_{mathrm{mino}}^{2} , X_{mathrm{mino}}}
+    }
+    $$
+    
+
+    """
+    
+    lnlambda=24-np.ln (np.sqrt(ne/1e6)/ (Te*1000) ) #~21 for sparc 
+    xi =  0.258 * (20/lnlambda) * np.sqrt(Te)*A*Prf/( (ne/1.e20 *Z)**2 * Chi )
+    return Te*(1+zeta)
 
 
 class toric_analysis:
@@ -277,7 +293,7 @@ class toric_analysis:
     """
 
 
-    def __init__ (self, toric_name='None', mode='LH',
+    def __init__ (self, toric_name='None', toric_data="toric.data", mode='LH',
         idebug=False, comment='', layout='poster', path="./"):
         import socket
         from time import gmtime
@@ -285,6 +301,7 @@ class toric_analysis:
         __version__=1.0
 
         self.toric_name=toric_name
+        self.toric_data=toric_data
         self.mode = mode
         self.__version__ = __version__
         self.idebug = idebug
@@ -302,7 +319,7 @@ class toric_analysis:
         self.label = True
         self.equigs = {}
         self.toricdict={}
-        self.nml=f90nml.read(path+'/'+'torica.inp')
+        self.nml=f90nml.read(os.path.join(path,'torica.inp') )
 
         if (self.mode[:2]=='LH'):
             self.namemap={'xpsi':'tpsi','poynt':'vpoynt','pelec':'S_eld',
@@ -314,6 +331,7 @@ class toric_analysis:
                          'e2d_z':'Re2Ezeta','xplasma':'Xplasma', 'zplasma':'Zplasma',
                           'xeqpl':'Ef_abscissa'}
             if self.toric_name=='None': self.toric_name='toric.ncdf'
+            
 ##Open the toric netcdf file read only
         try:
             self.cdf_hdl = nc.netcdf_file(path+self.toric_name,mmap=False )#,'r')
@@ -327,6 +345,22 @@ class toric_analysis:
             print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
             self.qlde_hdl = -1
 
+        try:
+            self.data_hdl = nc.netcdf_file(path+self.toric_data,mmap=False )
+        except IOError:
+            print ('CRITICAL: ',self.toric_data,' not found.')
+            self.data_hdl = None            
+
+        if self.data_hdl:
+            dv=self.data_hdl.variables
+            xx = self.cdf_hdl.variables[self.namemap['xplasma']].data
+            nant=1
+            ant_ipsi= (np.abs(xx[0,:] - dv['antenna_radius'].data)).argmin()
+            self.antenna={'nant':nant, 'length':dv['ant_length'].data,
+                          'theta':dv['ant_position'].data,
+                          'rmajor':dv['antenna_radius'].data+dv['axis_radius'].data,
+                          'radius':dv['antenna_radius'].data ,'ipsi':ant_ipsi }
+            
         self.prov["host"]=socket.getfqdn()
         self.prov["user"]=os.getenv("USER")
         self.prov["gmtime"]=gmtime()
@@ -350,6 +384,11 @@ class toric_analysis:
             self.qlde_hdl.close()
         except IOError:
             print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
+
+        try:
+            self.data_hdl.close()
+        except IOError:
+            print ('Non-CRITICAL: ',path+self.toric_data,' not found.')
             
         return
 
@@ -361,42 +400,38 @@ class toric_analysis:
             for hdl in [self.cdf_hdl]:
                 print ('The toric file, ',self.toric_name,', contains:')
                 print ('----------------------------------------------')
-                print ("The global attributes: ",hdl.dimensions.keys())        
-                print ("File contains the variables: ", hdl.variables.keys())
+                print ("The global attributes: ",self.cdf_hdl.dimensions.keys())        
+                print ("File contains the variables: ", self.cdf_hdl.variables.keys())
 
         if (self.qlde_hdl != -1):
             for hdl in [self.qlde_hdl]:
-                print ('The toric file, ',self.toric_name,', contains:')
+                print ('The toric file, ',"toric_qlde.cdf",', contains:')
                 print ('----------------------------------------------')
-                print ("The global attributes: ",hdl.dimensions.keys()  ) 
-                print ("File contains the variables: ", hdl.variables.keys())
+                print ("The global attributes: ",self.qlde_hdl.dimensions.keys()  ) 
+                print ("File contains the variables: ", self.qlde_hdl.variables.keys())
+
+        if (self.data_hdl):
+            for hdl in [self.data_hdl]:
+                print ('The toric file, ',self.toric_data,', contains:')
+                print ('----------------------------------------------')
+                print ("The global attributes: ",self.data_hdl.dimensions.keys()  ) 
+                print ("File contains the variables: ", self.data_hdl.variables.keys())                
 
 
         print ('----------------------------------------------')
         print ("Provenance metadata: ", self.prov)
 
-        print ('----------------------------------------------')
-        print ('TORIC parameters')
+        #print ('----------------------------------------------')
+        #print ('TORIC parameters')
 
         print ('----------------------------------------------')
         print ('Power partitions')
         for var in ['TPwIF', 'TPwIH', 'TPwEFW', 'TPwEIBW']:
-            print("{0:} {1:>3} ".format(case2self.cdf_hdl.variables[var].long_name.decode('UTF-8') ,  
-                            ListToFormattedString(case2self.cdf_hdl.variables[var].data,'{:.2f}%') ) )
+            print("{0:} {1:>3} ".format(self.cdf_hdl.variables[var].long_name.decode('UTF-8') ,  
+                            ListToFormattedString(self.cdf_hdl.variables[var].data,'{:.2f}%') ) )
 
         return
 
-
-    def toricparam( self ):
-        "Fill a dictionary of toric scalar values"
-
-        self.toricdict['comment']='Dictionary of relevant toric scalars'
-        self.toricdict['mode']=self.mode
-        self.toricdict['nelm']=self.cdf_hdl.dimensions['nelm']
-        self.toricdict['nptpsi']=self.cdf_hdl.dimensions['nptpsi']
-        self.toricdict['ntt']=self.cdf_hdl.dimensions['ntt']
-
-        return
 
 
     def plotb0( self, ir=45, db=0,eps=0 ):
@@ -576,9 +611,9 @@ class toric_analysis:
             fftfield[:,i] = ffield
             i=i+1
 
-
         return fftfield
 
+    
     def spectrum( self, component='undef',maxr=1.,cx=0,levels=-1, q=None ):
         """Calculate poloidal spectrum of two dimensional field component.
         """
@@ -655,12 +690,12 @@ class toric_analysis:
         ymin = np.min( [ymin, np.min(ffield)] )
 #plot antenna spectrum
         plabel='ant'
-        print ("range, levels", rlevels)
-        print ("ymax", ymax,ymin)
-        plt.plot( thq, ffield,  label=plabel, color='grey',linewidth=2 )
-        cf=plt.gcf()
-        cf.subplots_adjust(right=0.76)
-        plt.axis ('tight')
+        if self.idebug: print ("range, levels", rlevels)
+        if self.idebug: print ("ymax", ymax,ymin)
+        plt.plot( thq, ffield,  label=plabel, color='grey') #,linewidth=2 )
+#        cf=plt.gcf()
+#        cf.subplots_adjust(right=0.76)
+#        plt.axis ('tight')
         if q!=None:
             plt.axis( xmin=-8,xmax=8 )
         else:
@@ -669,9 +704,10 @@ class toric_analysis:
         plt.legend(loc=(1.05,0))
         plt.xlabel('m')
         plt.ylabel('log10 scale')
-        plt.title('Poloidal spectrum on labeled flux surfaces')
-        plt.draw()
+        plt.title('Poloidal spectrum(rhopol)')
+        plt.tight_layout()
         return
+    
 
     def set_layout( self, layout='poster' ):
 
@@ -681,15 +717,22 @@ class toric_analysis:
             self.fsc=1.0
             self.fw='normal'
 
+        if (layout == 'poster'):
+            self.mylw=3.0
+            self.mypt=20.0
+            self.fsc=1.0
+            self.fw='bold'
+            
+
         params = {
             'axes.linewidth': self.mylw,
             'lines.linewidth': self.mylw,
             'axes.labelsize': self.mypt,
             'font.size': self.mypt,
             'legend.fontsize': self.mypt,
-            'axes.titlesize': self.mypt+2.0,
-            'xtick.labelsize':self.mypt,
-            'ytick.labelsize':self.mypt,
+            'axes.titlesize': self.mypt+4.0,
+            'xtick.labelsize':self.mypt-2,
+            'ytick.labelsize':self.mypt-2,
             'font.weight'  : self.fw,
             'text.usetex' : False
             }
@@ -719,6 +762,7 @@ class toric_analysis:
         p.plot ( rlim*100.-maxis[0], zlim*100.-maxis[1], 'k', linewidth = 2 )
         
         """
+        if self.idebug: print('call args',locals() )
 
         R0=axis[0]
         Z0=axis[1]
@@ -729,7 +773,6 @@ class toric_analysis:
 #12 characters * self.mypt /72.27 pt/in = #in
         legend_frac=12*self.mypt/72.27
         title=component
-
 
         xx  = self.cdf_hdl.variables[self.namemap['xplasma']].data
         yy  = self.cdf_hdl.variables[self.namemap['zplasma']].data
@@ -749,7 +792,6 @@ class toric_analysis:
             component='Re2'+component
 
 
-#note change to use ().data instead of np.array() in scipy0.8.0
         if (component=="power" and self.mode[:2]=='LH'):
             e2d = self.get_power2D()
         else:
@@ -773,9 +815,10 @@ class toric_analysis:
     #this step is needed because periodic dimension is not closed.
     #i.e. its [0,pi) not [0,pi]
         dd=np.shape(xx)
-        sx=dd[0]
-        sy=dd[1]
-        lastpsi=int(sy*maxsurface); if self.idebug: print(sx,sy,lastpsi)
+        sx=dd[0] #theta
+        sy=dd[1] #psi
+        lastpsi=int(sy*maxsurface)
+        if (self.idebug): print("2D plot shapes:",sx,sy,lastpsi,maxsurface)
         
         xxx=np.zeros((sx+1,sy),'d')
         xxx[0:sx,:]=xx[:,:]
@@ -791,8 +834,8 @@ class toric_analysis:
         ee2d[0:sx,:]=e2d[:,:]
         ee2d[sx,:]=e2d[0,:]
         
-        emax=np.max(ee2d[:,:lastpsi].ravel()) #[ee2d.argmax()]
-        emin=np.min(ee2d[:,:lastpsi].ravel())#[ee2d.argmin()]
+        emax=np.max(ee2d[:,:lastpsi].ravel())
+        emin=np.min(ee2d[:,:lastpsi].ravel())
 
     #contouring levels
         rmax=max([abs(emax),abs(emin)])*scaletop
@@ -801,7 +844,7 @@ class toric_analysis:
         val=np.arange(-rmax*1.1,rmax*1.1,(rmax+rmax)/25.,'d')
         if (im):
             val=np.arange(rmin,rmax*1.1,(rmax)/24.,'d')
-            if self.idebug: print ("values",val)
+        if self.idebug: print ("values",val)
 
     #reverse redblue map so red is positive
            # revRBmap=cmap_xmap(lambda x: 1.-x, cm.get_cmap('RdBu'))
@@ -825,18 +868,28 @@ class toric_analysis:
         #add LCF
         lcfpsi=self.cdf_hdl.dimensions['PsiPwdDim']
         plt.plot(xxx[:,lcfpsi],yyy[:,lcfpsi],'grey')
+
         
     #read ant length.  Calculate arc length vs theta to this value/2
     #in each direction, this plots the antenna location
         anthw=max(int(sx*0.01),4)
-        plt.plot(xxx[sx-anthw+1:sx+1,maxpsi],yyy[sx-anthw+1:sx+1,maxpsi],'g-',linewidth=6)
-        plt.plot(xxx[0:anthw,maxpsi],yyy[0:anthw,maxpsi],'g-',linewidth=6)
-        if self.idebug: print("antenna: ", yyy[sx-anthw+1:sx+1,maxpsi])
+        ant_it_height=int(sx*self.antenna['length']/2/ ( 2.*np.pi * self.antenna['radius'] ) )
+        ant_it_pos   =int(self.antenna['theta']*sx/360.)
+        #plt.plot(xxx[sx-anthw+1:sx+1,maxpsi],yyy[sx-anthw+1:sx+1,maxpsi],'g-',linewidth=6)
+        #plt.plot(xxx[0:anthw,maxpsi],yyy[0:anthw,maxpsi],'g-',linewidth=6)
+        r1=np.arange(  ant_it_pos, ant_it_pos+ant_it_height+1)%sx
+        r2=np.arange( (ant_it_pos-ant_it_height), (ant_it_pos+1))%sx
+        plt.plot(  xxx[ r1, self.antenna['ipsi'] ], yyy[ r1, self.antenna['ipsi'] ],
+                   'orange',linewidth=4 )
+        plt.plot(  xxx[ r2, self.antenna['ipsi'] ], yyy[ r2, self.antenna['ipsi'] ],
+                   'orange',linewidth=4 )
+
+        if self.idebug: print("antenna: ", yyy[sx-anthw+1:sx+1,maxpsi], 'it:',ant_it_pos,ant_it_height,sx)
         if self.label:
             ax=plt.gca()
             sublabel=self.prov['path']
-            if self.idebug: print (sublabel)
-            plt.text(-0.2,-0.2,sublabel,transform = ax.transAxes)
+            if self.idebug: print ('sublabel: ',sublabel)
+            plt.text(-0.2,-0.3,sublabel,transform = ax.transAxes,fontsize=4)
 
         if (logl > 0):
             title='log10 '+title
@@ -852,23 +905,31 @@ class toric_analysis:
 
 
         if (logl <= 0):
-            CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],ee2d[:,:lastpsi],val,cmap=cm.jet) #30APR2009 removed *0.2
+            CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],
+                            ee2d[:,:lastpsi],val,cmap=cm.jet)
+#            for it in range(sx):
+#                PS=plt.plot(xxx[it,:lastpsi],yyy[it,:lastpsi],'k')
+#            for ip in range(sy):
+#                PS=plt.plot(xxx[:,ip],yyy[:,ip],'b')
+            
 
         if (logl > 0):
 #            lee2d=np.sign(ee2d)*np.log(np.sqrt(np.abs(ee2d)**2+1)+np.abs(ee2d))/np.log(10)
-            lee2d=np.log(np.abs(ee2d)+1.0)/np.log(10)
-            rmax=lee2d.ravel()[lee2d.argmax()]+lscaletop
-            rmin=lee2d.ravel()[lee2d.argmin()]+lscalebot
+            lee2d=np.log(np.abs(ee2d[:,:lastpsi])+1.0)/np.log(10)
+            rmax=lee2d.ravel()[lee2d[:,:lastpsi].argmax()]+lscaletop
+            rmin=lee2d.ravel()[lee2d[:,:lastpsi].argmin()]+lscalebot
             val=np.arange(rmin,rmax,(rmax-rmin)/(logl*1.0),'d')
-            CS=plt.contourf(xxx,yyy,lee2d,val,cmap=cm.jet)
+            CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],lee2d[:,:lastpsi],val,cmap=cm.jet)
 
 ##put the contour scales on the plot
 #tricky, fraction needs to be specified to be part by which horizontal exceed vertical
 
         cbar=plt.colorbar(CS,format=barfmt,ax=sax)
         cbar.ax.set_ylabel('levels')
+        plt.tight_layout()            
 
-        if self.idebug: print ("contour values",CS.levels,'xx',rmax,rmin)
+        
+        if self.idebug: print ("contour values",CS.levels,'|',rmax,rmin)
 
         return CS,cbar
 
@@ -877,45 +938,75 @@ class toric_analysis:
 ### user routines using the above, could be in a different module
     def powpoynt( self ):
         "Plots powers and poynting flux"
-        fig = plt.figure(figsize=(16,9) )
+        import matplotlib.colors as mcolors
+        pcolors=list(mcolors.BASE_COLORS)
+        
+        fig = plt.figure(figsize=(12,9) )
         ax1 = fig.add_subplot(111)
+        ax1.set_prop_cycle(color=['orange', 'green', 'blue','grey'],
+                  marker=['o', '+', 'x','o'])
+
         line1,=self.psiplot(self.namemap['pelec'])
 #can use setp(lines, ) to change plot properties.
-        plt.setp(line1,color='b' ,label=r'$P_{eld}$')
-     #   line1.setlabel('<ExB>')
+        plt.setp(line1,label='electrons')
 
 
 #add first two species if ICRF, add logic to plot if power percent is larger than 0.5%
         if (self.mode[:2]!='LH'):
-           line2,=self.plotpower(power='PwIF',species=1)
-#           line3,=self.plotpower(power='PwIF',species=2)
-         
-           line4,=self.plotpower(power='PwIF',species=3)
-           plt.setp(line4,color='g',label='Fund sp3') #add species name
-#           line5,=self.plotpower(power='PwIH',species=1)
-           line6,=self.plotpower(power='PwIH',species=2)
-           plt.setp(line6,color='k',label='Harm sp2') #add species name
-#           line7,=self.plotpower(power='PwIH',species=3)
+            nspec=self.cdf_hdl.dimensions['SpecDim']
+            spec=get_spec_toric(self.nml)
+            tpowerF=self.cdf_hdl.variables['TPwIF']
+            tpowerH=self.cdf_hdl.variables['TPwIH']
+            lines=[line1]
+            idx=2
+            for ispec in range(nspec):
+                if self.idebug:
+                    print('total powers',tpowerF[ispec],tpowerH[ispec])
+                if tpowerF[ispec]>0.1:
+                    ltemp,=self.plotpower(power='PwIF',species=ispec+1)
+                    plt.setp(ltemp,label='Fund '+spec[ispec+1]['name'])
+                    #ltemp.set_color(pcolors[idx])
+                    idx+=1
+                    lines.append(ltemp)
+
+                if tpowerH[ispec]>0.1:
+                    ltemp,=self.plotpower(power='PwIH',species=ispec+1)
+                    plt.setp(ltemp,label='Harm '+spec[ispec+1]['name'])
+                    #ltemp.set_color(pcolors[idx])
+                    idx+=1
+                    lines.append(ltemp)
+
+           
 
         ax2 = ax1.twinx()
-        line2,=self.psiplot(self.namemap['poynt'])
+        line20,=self.psiplot(self.namemap['poynt'])
+        #line20.set_color('g')
+        plt.setp(line20,label='<ExB>')
+
+        lines.append(line20)
+        if (self.idebug):
+            for ll in lines:
+                print('lines',ll, type(ll) ) #.get_label() )
+            
 #set axis floor at 0
         #plt.gca().set_ylim(0)
         ax1.set_ylim(0)
         ax2.set_ylim(0)
         ax1.set_ylabel('Power',color='b')        
 #change color and symbol
-        plt.setp(line2,color='r', label='<ExB>')
+        plt.setp(line20,color='r', label='<ExB>')
         ax2.set_ylabel('Poynting',color='r')
         ax2.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
 
 #make  legend too
-        plt.legend( handles=[line1,line2,line4,line6], loc='center right', 
+        plt.legend( handles=lines, loc='center right', #line1,line2,line4,line6], loc='center right', 
                      ncol=1, fancybox=True, shadow=True)
-        
+
+        plt.xlim( [0,1] )
         plt.tight_layout()
         plt.draw()
         return fig
+    
 
     def powerion( self ):
         "Plots electron power and poynting flux"
@@ -993,24 +1084,30 @@ class toric_analysis:
         * The polodial power spectrum on six flux surfaces for convergence as eps.
         * And the 2D parallel electric field contour plot as a png."""
 
+
+        f1=plt.figure()
+
         self.spectrum(cx=1)
         plt.draw()
         plt.savefig(prefix+'spectrum.pdf',format='pdf')
         plt.savefig(prefix+'spectrum.png',format='png')
 
         if (self.mode[:2]!='LH'):        
-            self.plot_2Dfield(component='Eplus', maxsurface=0.9,im=True,logl=25)
+            f2a=plt.figure(figsize=(8,12))
+            self.plot_2Dfield(component='Eplus', maxsurface=0.93,lscaletop=0,im=True,logl=25,fig=f2a)
             plt.draw()
             plt.savefig('log10Eplus2d.png',format='png')
-            self.plot_2Dfield(component='Eplus',maxsurface=0.9)#,scaletop=.8)
+            f2b=plt.figure(figsize=(8,12))
+            self.plot_2Dfield(component='Eplus',maxsurface=0.93,fig=f2b)#,scaletop=.4,scalebot=0.2)
             plt.draw()
             plt.savefig('Eplus2d.png',format='png')
             
-        
-        self.plot_2Dfield(im=True,logl=25)#,scaletop=0.8)
+        f3=plt.figure(figsize=(8,12))
+        self.plot_2Dfield(im=True,logl=25,fig=f3)#,scaletop=0.8)
         plt.draw()
         plt.savefig(prefix+'log10Ez2d.png',format='png')
 
+        f3=plt.figure()
         self.powpoynt()
         plt.draw()
         plt.savefig(prefix+'powerpoynt.pdf',format='pdf')

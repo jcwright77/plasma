@@ -22,6 +22,9 @@
 #
 #   Make into a function call returning a structure with optional outputs
 #
+#   JCW - 01-May-25
+#   fortran format readers, eq with R=0
+#
 # some eqdsk files have data in 16.8, some in 16.9
 
 #Courtesy of OMFIT eq_JET.py
@@ -51,8 +54,8 @@
 # RLIM: R of surrounding limiter contour in meter                      - RLIM
 # ZLIM: Z of surrounding limiter contour in meter                      - ZLIM
 
-def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9, 
-           	cocos=1, dolimiter=None, ax=None, dodebug=False):
+def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=False, width=9, 
+           	cocos=3, dolimiter=None, ax=None, dodebug=False):
     import re
     import numpy as np
     import pylab as plt
@@ -166,6 +169,8 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
     r   = np.arange ( nW ) * rStep + rleft
     z   = np.arange ( nH ) * zStep + zmid - zdim / 2.0
 
+    Rv,Zv=np.meshgrid(r,z,indexing='ij')
+    
     fluxGrid    = np.arange ( nW ) * fStep + simag
 
 #   Find indices of points inside and outside
@@ -200,23 +205,23 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
     fig='No figure'
     if (doplot):
         N=10
-        if not isinstance(doplot,bool):
-            if isinstance(doplot,int):
-                 N=doplot
+        if dodebug: print('shapes',Rv.shape,Zv.shape,psizr.shape)
+        if isinstance(doplot,int): N=doplot
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.set_aspect('equal')
-            plt.contour ( r, z, psizr.T, N )
-            plt.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
-            if (dolimiter):
-                plt.plot ( rlim, zlim, 'g', linewidth = 4 )
-            plt.show ()
-        else:
-            ax.contour (r, z, psizr.T, N )
-            ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
-            if (dolimiter):
-                ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
+            
+#            plt.contour ( Rv, Zv, psizr, N )
+#            plt.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+#            if (dolimiter):
+#                plt.plot ( rlim, zlim, 'g', linewidth = 4 )
+#            plt.show ()
+#        else:
+         ax.contour (Rv, Zv, psizr, N )
+         ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+         if (dolimiter):
+             ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
 
     #checks
     # rmaxis =/ rcentr
@@ -232,7 +237,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=None, width=9,
 
 
 def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3, 
-                doplot=None, dolimiter=None, ax=None, dodebug=False):
+                doplot=None, dolimiter=None, ax=None, dodebug=False, asp=1.0):
     """
     Read an eqdsk file for various cocos conventions, optionally produce a plot
     dointerior returns list of i,j pts inside LCF.
@@ -277,7 +282,8 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
         pres    =readArray(f2020,[nw])
         ffprim  =readArray(f2020,[nw])
         pprime  =readArray(f2020,[nw])
-        psizr   =readArray(f2020,[nw,nh]).T # ff follows fortran indexing convention, so transpose to be consistent with usage
+        psizr   =readArray(f2020,[nh,nw]).T
+        # ff follows fortran indexing convention, so transpose to be consistent with usage
         qpsi    =readArray(f2020,[nw])
         #check if bb present
         [nbbbs,limitr]=f2022.read(next(f))
@@ -299,6 +305,8 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
 
     r   = np.arange ( nw ) * rStep + rleft
     z   = np.arange ( nh ) * zStep + zmid - zdim / 2.0
+
+    Rv,Zv=np.meshgrid(r,z,indexing='ij')
 
     fluxGrid    = np.arange ( nw ) * fStep + simag
 
@@ -323,20 +331,19 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
     fig='No figure'
     if (doplot):
         N=10
-        if not isinstance(doplot,bool):
-            if isinstance(doplot,int):
-                 N=doplot
+        if dodebug: print('shapes',Rv.shape,Zv.shape,psizr.shape)
+        if isinstance(doplot,int): N=doplot
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.set_aspect('equal')
-            plt.contour ( r, z, psizr.T, N )
+            ax.set_aspect(asp)
+            plt.contour ( Rv, Zv, psizr, N )
             plt.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
             if (dolimiter):
                 plt.plot ( rlim, zlim, 'g', linewidth = 4 )
             plt.show ()
         else:
-            ax.contour (r, z, psizr.T, N )
+            ax.contour (Rv, Zv, psizr, N )
             ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
             if (dolimiter):
                 ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
@@ -353,7 +360,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
     return eqdsk,fig
 
 
-def getModB(eq,dict=False):
+def getModB(eq,rdict=False):
     """
     Calculate the magnitude of the magnetic field on the RZ mesh.
 
@@ -366,16 +373,16 @@ def getModB(eq,dict=False):
     from scipy import interpolate
 
     #poloidal component. for cocos=[3] or 1/11 (R,phi,Z)
-    fluxfactor=1.0 ; sbp = +1
+    fluxfactor=1.0 ; sbp = +1.0
     if eq['cocos']>=11   : fluxfactor=2.*np.pi
-    if eq['cocos']%10==3 : sbp=-1
+    if eq['cocos']%10==3 : sbp=-1.0
     
     R=eq.get('r')
     Z=eq.get('z')
     Rv,Zv=np.meshgrid(R,Z,indexing='ij') #these are R and Z on RZ mesh, first index for Z , default indexing
-    psiRZ=eq.get('psizr').T 
-    psiZR=eq.get('psizr')   
-    spline_psi = interpolate.RectBivariateSpline(R,Z,psiRZ.T,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
+    psiZR=eq.get('psizr')
+    
+    spline_psi = interpolate.RectBivariateSpline(R,Z,psiZR,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
     psi_int_r=spline_psi.ev(Rv,Zv,dx=1)/fluxfactor
     psi_int_z=spline_psi.ev(Rv,Zv,dy=1)/fluxfactor
     grad_psi=np.sqrt(psi_int_z**2+psi_int_r**2)
@@ -394,12 +401,35 @@ def getModB(eq,dict=False):
     fpolRZ=np.array(fpolRZ) #Fpol numpy array on RZ mesh
 
     modgradpsi=np.sqrt(grad_psi**2+fpolRZ**2)
-    modB=modgradpsi/Rv
-    if R[0]==0.0: #If origin is included in domain, be careful with |B| on axis.
-        modB[:,0]=(np.diff(modgradpsi,axis=1)/(R[1]-R[0]))[:,0]
-    BV=( +sbp*psi_int_z/Rv, fpolRZ/Rv, -sbp*psi_int_r/Rv) #R,phi,Z for cocos1/11 and 3/13
+    modB=np.zeros(Rv.shape)
+    BR  =np.zeros(Rv.shape)
+    Bphi=np.zeros(Rv.shape)
+    BZ  =np.zeros(Rv.shape)
+    #If origin is included in domain, be careful with |B| on axis.
+    if np.min(np.abs(R)) < 1.e-6:
+        print('R=0 present, assuming mirror',sbp)
+        modB[1:,:]=      modgradpsi[1:,:]/Rv[1:,:]
+        BR[1:,:]  = +sbp*psi_int_z[1:,:] /Rv[1:,:]
+        Bphi[1:,:]=      fpolRZ[1:,:]    /Rv[1:,:]
+        BZ[1:,:]  = -sbp*psi_int_r[1:,:] /Rv[1:,:]
+
+        modB[0,:]=      (np.diff(modgradpsi,axis=0)/(R[1]-R[0]))[0,:]
+        BR[0,:]  = +sbp*(np.diff(psi_int_z, axis=0)/(R[1]-R[0]))[0,:]
+        Bphi[0,:]=      (np.diff(fpolRZ,    axis=0)/(R[1]-R[0]))[0,:]
+        BZ[0,:]  = -sbp*(np.diff(psi_int_r, axis=0)/(R[1]-R[0]))[0,:]
+    else:
+        print('R=0 not present')
+        modB =       modgradpsi/Rv        
+        BR   = +sbp* psi_int_z /Rv
+        Bphi =       fpolRZ    /Rv
+        BZ   = -sbp* psi_int_r /Rv
+        
+
+    Bv = (BR,Bphi,BZ)
+#    BV=( +sbp*psi_int_z/Rv, fpolRZ/Rv, -sbp*psi_int_r/Rv) #R,phi,Z for cocos1/11 and 3/13
     #Add components
-    return modB,grad_psi,fpolRZ,Rv,Zv,BV
+    if rdict:  return {'modB':modB }
+    return modB,grad_psi,fpolRZ,Rv,Zv,Bv
 
 
 def getLCF(eq):
@@ -425,7 +455,7 @@ def getLCF(eq):
             return lcf
 
         
-def plotEQDSK(eq):
+def plotEQDSK(eq,asp=1.0):
     import pylab as plt
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2,figsize=(10, 6))
     fig.suptitle( 'EQDSK content for '+eq['name'] )
@@ -441,22 +471,27 @@ def plotEQDSK(eq):
     ax1.set_title("Magnetic field components")
     ax1.plot(R,modB [:,nz2-1],'purple',label='B')
     ax1.plot(R,BV[1][:,nz2-1],'black',label='Btor')
-    ax1.plot(R,BV[2][:,nz2-1],'orange',label='BZ')
-    ax1.plot(R,BV[0][:,nz2-1],'red',label='BR')
+    ax1.plot(R,BV[2][:,nz2-1],'orange',label='BZ-mid')
+    ax1.plot(R,BV[0][:,nz2-1],'r-.',label='BR-mid')
+    ax1.plot(R,BV[0][:,int(nz2*3/2)-1],'r-.',label='BR-3/4')
     ax1.legend(bbox_to_anchor=(-0.1,0.5))
 
     ax2.set_title('Flux surfaces')
-    ax2.contour (eq['r'], eq['z'], eq['psizr'].T, 40 )
+    ax2.contour (Rv, Zv, eq['psizr'], 40 )
     ax2.plot ( eq['rbbbs'], eq['zbbbs'], 'k', linewidth = 3 )
-    ax2.plot ( eq['rlim'], eq['zlim'], 'g', linewidth = 4 )
-    ax2.set_aspect('equal')
+    ax2.plot ( eq['rlim'],  eq['zlim'],  'g', linewidth = 4 )
+    ax2.set_aspect(asp)
     
     ax3.set_title('Profiles')
     ax3.plot(eq['fluxGrid'], eq['qpsi'],                   label='q')
-    ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],    label='F/F(0)')
-    ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],     label='p/p(0)')
-    ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], label="FF' norm")
-    ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0], label="p' norm")    
+    if eq['fpol'][0]>0:
+        ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],    label='F/F(0)')
+    if eq['pres'][0]>0:
+        ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],     label='p/p(0)')
+    if eq['ffprim'][0]>0:        
+        ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], label="FF' norm")
+    if eq['pprime'][0]>0:        
+        ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0], label="p' norm")    
     ax3.legend(bbox_to_anchor=(-0.1,0.5))
     
     ax4.text(0.5,0.9,'Values from EQDSK header.',ha='center')
@@ -627,5 +662,4 @@ def rescaleB(eq,filename,s=1.,sR=1.):
     neweq['fluxgGrid']=eq['fluxGrid']*f
 
     writeEQDSK(neweq,filename)
-
 

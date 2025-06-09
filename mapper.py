@@ -1,3 +1,27 @@
+import numpy as np
+import scipy.integrate as integrate
+
+
+def area(vs):
+    """
+    Use Green's theorem to compute the area
+    enclosed by the given contour.
+
+    Takes at list of vertices. vs[ 0:L, 0:2 ]
+    eg
+    cs = plt.contour(X,Y,r,levels=1)
+    a = area( cs.get_paths()[0].vertices )
+
+    $\oint f d\ell = \int dA \times \nabla F$
+
+    $f=1 ; F = (-y,x)/2 $
+    """
+    
+    x=vs[:,0]
+    y=vs[:,1]
+    return 0.5*integrate.simpson(y*np.gradient(x,edge_order=2) - x*np.gradient(y,edge_order=2))
+
+
 def mapper(eqobj,jac='straight'):
     """
     mapper calculates a r,theta cooridinate system within the last closed flux surface
