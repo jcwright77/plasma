@@ -246,7 +246,6 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
 
     """
 
-    import re
     import numpy as np
     import matplotlib.pyplot as plt
     import fortranformat as ff

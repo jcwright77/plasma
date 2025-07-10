@@ -127,7 +127,7 @@ def write_profnt(namelist,equidt,version='profnt2'):
 
 
 #this routine is still incomplete
-def read_equidt(filename):
+def read_profnt(filename):
     import fortranformat as ff
     equidt={}
     with open(filename,'r') as of:
@@ -152,6 +152,7 @@ def read_equidt(filename):
             nsptmp = 1
         else:
             nsptmp = 10 # place holder nspec
+            
 
 
 
@@ -357,7 +358,7 @@ class toric_analysis:
         nant=1
         if self.data_hdl:
             dv=self.data_hdl.variables
-            ant_ipsi= (np.abs(xx[0,:] - dv['antenna_radius'].data)).argmin()
+            ant_ipsi= 0.99 #(np.abs(xx[0,:] - dv['antenna_radius'].data)).argmin()
             self.antenna={'nant':nant, 'length':dv['ant_length'].data,
                           'theta':dv['ant_position'].data,
                           'rmajor':dv['antenna_radius'].data+dv['axis_radius'].data,
@@ -882,7 +883,8 @@ class toric_analysis:
     #read ant length.  Calculate arc length vs theta to this value/2
     #in each direction, this plots the antenna location
         anthw=max(int(sx*0.01),4)
-        ant_it_height=int(sx*self.antenna['length']/2/ ( 2.*np.pi * self.antenna['radius'] ) )
+        ant_it_height= 10 #int(sx*self.antenna['length']/2/ ( 2.*np.pi * self.antenna['radius'] ) )
+        
         ant_it_pos   =int(self.antenna['theta']*sx/360.)
         #plt.plot(xxx[sx-anthw+1:sx+1,maxpsi],yyy[sx-anthw+1:sx+1,maxpsi],'g-',linewidth=6)
         #plt.plot(xxx[0:anthw,maxpsi],yyy[0:anthw,maxpsi],'g-',linewidth=6)
