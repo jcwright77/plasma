@@ -607,7 +607,7 @@ def resize(eq,nx,ny=None):
 
     neweq=copy.deepcopy(eq)
     neweq['nW']=nx
-    if !ny: ny=nx
+    if not ny: ny=nx
     neweq['nH']=ny
 
 
@@ -672,3 +672,9 @@ def rescaleB(eq,filename,s=1.,sR=1.):
 
     writeEQDSK(neweq,filename)
     return neweq
+
+
+def area(vs):
+    x=vs[:,0]
+    y=vs[:,1]
+    return 0.5*np.sum(y[:-1]*np.diff(x) - x[:-1]*np.diff(y))

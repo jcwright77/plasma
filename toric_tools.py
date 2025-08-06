@@ -52,7 +52,7 @@ def get_spec_toric(toricnml):
     "Collect info on species for ICRF sim in TORIC in nice readable format"
 
     from periodictable import elements    
-    
+
     spec_toric=list(zip(map(round,toricnml['equidata']['atm']),map(int,toricnml['equidata']['azi'])))
     for i,s in enumerate(spec_toric):
       name=str(elements[s[1]][s[0]])
@@ -154,6 +154,65 @@ def read_profnt(filename):
             nsptmp = 10 # place holder nspec
             
 
+def read_equidt(filename):
+  import fortranformat as ff
+
+
+  keys=['psipro','tbne','tbte']
+  profiles=dict.fromkeys(keys)
+  f0001=ff.FortranRecordReader('a10,5i4')
+  f0002=ff.FortranRecordReader('2i4')
+  f0003=ff.FortranRecordReader('a10,1i4')
+  f0004=ff.FortranRecordReader('5e16.9')
+  f0006=ff.FortranRecordReader('1e16.9')
+  f0005=ff.FortranRecordReader('a10')
+
+
+  def readArray(fmt,shp):
+    vals=[]
+    if len(shp)==1: N=shp[0]
+    if len(shp)==2: N=shp[0]*shp[1]
+    nlines = int(N/5)
+    if (N%5)!=0: nlines+=1
+    for i in range( nlines ):
+      vals.extend(fmt.read(next(of)))
+    return np.reshape(np.array(vals[0:N]),shp)
+
+
+  with open(filename,'r') as of:
+    [id,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp]=f0001.read(next(of))
+    iatm=np.zeros(nspec, dtype=int)
+    iazi=np.zeros(nspec, dtype=int)
+    nconc=np.zeros(nspec, dtype=float)
+    ion_temp=np.zeros([nprodt,nspec], dtype=float)
+
+    for isp in range(nspec):
+      [iatm[isp],iazi[isp]] = f0002.read(next(of))
+      print('spec',[iatm[isp],iazi[isp]] )
+
+    for profile in keys: #reading non ion profiles
+      [proname,dummy]=f0003.read(next(of))
+      profiles[proname.strip()]=readArray(f0004,[nprodt])
+      print('reading name,size',proname,dummy,profiles[proname.strip()][0:4])
+
+    for isp in range(nspec):
+      [proname]=f0005.read(next(of))
+      if kdiff_idens==0:
+        [nconc[isp]]=f0006.read(next(of))
+        print('reading name',proname,nconc[isp])
+      else:
+        print('if ikdiff_idens /=0 read profile')
+
+      [proname]=f0005.read(next(of))
+      if kdiff_itemp==0 and isp==0:
+        print('reading name',proname)
+        #profiles[proname]=readArray(f0004,[nprodt])
+
+    profiles['iatm']=iatm    #atomic mass number
+    profiles['iazi']=iazi    #atomic charge number
+    profiles['nconc']=nconc  #ion concentrations
+    #profiles['nprodt']=nprodt #length
+  return profiles            
 
 
 def write_equigs(eq,equigsfile):
@@ -296,7 +355,7 @@ class toric_analysis:
     """
 
 
-    def __init__ (self, toric_name='None', toric_data="toric.data", mode='LH',
+    def __init__ (self, toric_name='toric.ncdf', toric_data="toric.data", mode='ICRF',
         idebug=False, comment='', layout='poster', path="./"):
         import socket
         from time import gmtime
@@ -333,7 +392,6 @@ class toric_analysis:
             self.namemap={'xpsi':'Pw_abscissa','poynt':'PoyFlx','pelec':'PwE',
                          'e2d_z':'Re2Ezeta','xplasma':'Xplasma', 'zplasma':'Zplasma',
                           'xeqpl':'Ef_abscissa'}
-            if self.toric_name=='None': self.toric_name='toric.ncdf'
             
 ##Open the toric netcdf file read only
         try:
@@ -358,18 +416,16 @@ class toric_analysis:
         nant=1
         if self.data_hdl:
             dv=self.data_hdl.variables
-            ant_ipsi= 0.99 #(np.abs(xx[0,:] - dv['antenna_radius'].data)).argmin()
-            self.antenna={'nant':nant, 'length':dv['ant_length'].data,
-                          'theta':dv['ant_position'].data,
-                          'rmajor':dv['antenna_radius'].data+dv['axis_radius'].data,
-                          'radius':dv['antenna_radius'].data ,'ipsi':ant_ipsi }
+            ant_ipsi= (np.abs(xx[0,:] - dv['antenna_radius'].data[0])).argmin()
+            self.antenna={'nant':nant, 'length':dv['ant_length'].data[0],
+                          'theta':dv['ant_position'].data[:nant],
+                          'rmajor':dv['antenna_radius'].data[0]+dv['axis_radius'].data[0],
+                          'radius':dv['antenna_radius'].data[0] ,'ipsi':ant_ipsi }
         else:
             self.antenna={'nant':1, 'length':10,
                           'theta':0.,
                           'rmajor':self.cdf_hdl.variables['Raxis'].data+self.cdf_hdl.variables['xedg_out'].data,
                           'radius':self.cdf_hdl.variables['xedg_out'].data,'ipsi':1 }
-            
-            
             
         self.prov["host"]=socket.getfqdn()
         self.prov["user"]=os.getenv("USER")
@@ -384,6 +440,7 @@ class toric_analysis:
 
         return
 
+    
     def close (self):
         try:
             self.cdf_hdl.close()
@@ -441,7 +498,6 @@ class toric_analysis:
                             ListToFormattedString(self.cdf_hdl.variables[var].data,'{:.2f}%') ) )
 
         return
-
 
 
     def plotb0( self, ir=45, db=0,eps=0 ):
@@ -761,10 +817,6 @@ class toric_analysis:
         example of using netcdf python modules to plot toric solutions
         requires numpy and matplotlib and netcdf modules for python.
 
-        Note, under windows you need netcdf.dll installed in SYSTEM32 and the file
-        system cannot follow symbolic links.  The DLL needs to have executable
-        permissions.
-
         To overplot with limiter, made from efit plotter:
         R.plot_2Dfield(component='Im2Eplus',logl=20,xunits=0.01,axis=maxis,fig=fig1)
 
@@ -796,10 +848,11 @@ class toric_analysis:
         else:
             if (component=='E2d_z'):
                 component='Ezeta'
-
-            im_e2dname='Im2'+component
-            if (im) : title='|'+component+'|'
-            component='Re2'+component
+                
+            if component[0]!='T':
+                im_e2dname='Im2'+component
+                if (im) : title='|'+component+'|'
+                component='Re2'+component
 
 
         if (component=="power" and self.mode[:2]=='LH'):
@@ -904,7 +957,7 @@ class toric_analysis:
 
         if (logl > 0):
             title='log10 '+title
-            barfmt='%3.1f'
+            barfmt='%6.2e'
 
     ##labels and titles
     #xlabel(getattr(xx,'long_name')+'('+getattr(xx,'units')+')')
@@ -965,6 +1018,7 @@ class toric_analysis:
 #add first two species if ICRF, add logic to plot if power percent is larger than 0.5%
         if (self.mode[:2]!='LH'):
             nspec=self.cdf_hdl.dimensions['SpecDim']
+            if self.idebug: print(self.nml['equidata'] )
             spec=get_spec_toric(self.nml)
             tpowerF=self.cdf_hdl.variables['TPwIF']
             tpowerH=self.cdf_hdl.variables['TPwIH']
@@ -1051,6 +1105,7 @@ class toric_analysis:
 
         return xmap
 
+
     def get_power2D( self ):
 #figure out a sed way of cutting these lines into the file.
 #also need to replace '-0.' with ' -0.'
@@ -1126,7 +1181,6 @@ class toric_analysis:
 
         return
 
-
     
 #Handling equigs file
     def __get_varname(self, f):
@@ -1189,6 +1243,13 @@ class toric_analysis:
 
         equigs_hdl.close()
 
+        return
+
+
+    def read_diag(self, diagfile='toric.asc'):
+        return
+
+    
 
 ####main block
 if __name__ == '__main__':
