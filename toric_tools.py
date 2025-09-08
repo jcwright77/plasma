@@ -11,11 +11,12 @@ import f90nml
 
 #other deps below
     #import f90nml
-    #from periodictable import elements    
+    #from periodictable import elements
 
 def print_vector(nrep,fstr,a):
     """
-    Converts an array of numbers into a string formated by fstr with nrep values per line.
+    Converts an array of numbers into a string formated by fstr with
+    nrep values per line.
     """
     n=a.size
     pa=""
@@ -28,7 +29,7 @@ def print_vector(nrep,fstr,a):
 def ListToFormattedString(alist,fstr):
     # Create a format spec for each item in the input `alist`.
     # E.g., each item will be right-adjusted, field width=3.
-    format_list = [fstr for item in alist] 
+    format_list = [fstr for item in alist]
 
     # Now join the format specs into a single string:
     # E.g., '{:>3}, {:>3}, {:>3}' if the input list has 3 items.
@@ -43,17 +44,18 @@ def formattedwrite(file,a):
   for idx in range(0,int(sza/4)*4,4):
     file.write(f"{a[idx]:18.9E}{a[idx+1]:18.9E}{a[idx+2]:18.9E}{a[idx+3]:18.9E}\n")
   rem = np.mod(sza,4)
-  if rem>0:
-    file.write(''.join([ "%18.9E" % x for x in a[-rem:] ])+"\n") #print remaining elements
+  if rem>0: #print remaining elements
+    file.write(''.join([ "%18.9E" % x for x in a[-rem:] ])+"\n") 
 
 
 # Plasma species in template namelist
 def get_spec_toric(toricnml):
     "Collect info on species for ICRF sim in TORIC in nice readable format"
 
-    from periodictable import elements    
+    from periodictable import elements
 
-    spec_toric=list(zip(map(round,toricnml['equidata']['atm']),map(int,toricnml['equidata']['azi'])))
+    spec_toric=list(zip(map(round,toricnml['equidata']['atm']),
+                        map(int,toricnml['equidata']['azi'])))
     for i,s in enumerate(spec_toric):
       name=str(elements[s[1]][s[0]])
       if False:
@@ -61,8 +63,8 @@ def get_spec_toric(toricnml):
                 100*toricnml['equidata']['aconc'][i] )
       spec_toric[i]={'name':name,'A':spec_toric[i][0],'Z':spec_toric[i][1],
                      'Conc%':100*toricnml['equidata']['aconc'][i]}
-    
     spec_toric.insert(0,{'name':'e', 'A':0, 'Z':-1 , 'Conc%': 100})
+    print('spec',len(spec_toric),toricnml['equidata']['atm'],spec_toric)
     return spec_toric
 
 
@@ -76,10 +78,9 @@ def write_profnt(namelist,equidt,version='profnt2'):
             tbte: [keV]  on psipro mesh
             iatm: array of atomic masses/ (C12/12)
             iazi: array of atomic numbers
-            tbni: ion densities on psipro mesh
+            tbni: ion densities on psipro mesh or concentration
             tbi_provv: ion temperatures on psipro mesh
-            nspec: number of ion species
-            
+
          version: Generally format2 is used. File is self describing in
                   number of elements and profiles.
     """
@@ -99,10 +100,11 @@ def write_profnt(namelist,equidt,version='profnt2'):
             namelist['equidata']['mainsp']=mainsp
             kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
             kdiff_itemp=equidt['kdiff_itemp'] #0 #one ion temp
-            of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.format('profnt_py',nprodt,nspec,
-                                                                 mainsp,kdiff_idens,kdiff_itemp))
+            of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.
+            format('profnt_py', nprodt,nspec, mainsp,kdiff_idens,kdiff_itemp))
             for isp in range(nspec):
-                of.write('{:4d}{:4d}\n'.format(int(equidt['iatm'][isp]),int(equidt['iazi'][isp])) )
+                of.write('{:4d}{:4d}\n'.
+                  format(int(equidt['iatm'][isp]),int(equidt['iazi'][isp])) )
             profiles=['psipro','tbne','tbte']
             for profile in profiles:
                 of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
@@ -112,18 +114,18 @@ def write_profnt(namelist,equidt,version='profnt2'):
             for isp in range(nspec):
                 if kdiff_idens==0:
                     of.write('{:<10s}\n'.format('ni_conc'+str(isp)))
-                    of.write('%16.9e \n' % equidt['tbni'][isp]) 
+                    of.write('%16.9e \n' % equidt['tbni'][isp])
                 else:
                     of.write('{:<10s}\n'.format('tbni'+str(isp)))
                     of.write(print_vector(5,'%16.9e',equidt['tbni'][:,isp]))
 
                 if kdiff_itemp==0 and isp==0:
                     of.write('{:<10s}\n'.format('ion_temp') )
-                    of.write(print_vector(5,'%16.9e',equidt['tbi_provv'])) 
+                    of.write(print_vector(5,'%16.9e',equidt['tbi_provv']))
 
                 if kdiff_itemp==1:
                     of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
-                    of.write(print_vector(5,'%16.9e',equidt['tbi_provv'][:,isp])) 
+                    of.write(print_vector(5,'%16.9e',equidt['tbi_provv'][:,isp]))
 
 
 #this routine is still incomplete
@@ -134,8 +136,8 @@ def read_profnt(filename):
         line = of.readline()
         reader = ff.FortranRecordReader('(A10,5i4)')
         var_name, nprodt, nspec, mainsp,kdiff_idens, kdiff_itemp = reader.read(line)
-        
-            
+
+
         line = of.readline()
         reader = ff.FortranRecordReader('(A10,5i4)')
 
@@ -152,7 +154,7 @@ def read_profnt(filename):
             nsptmp = 1
         else:
             nsptmp = 10 # place holder nspec
-            
+
 
 def read_equidt(filename):
   import fortranformat as ff
@@ -212,7 +214,7 @@ def read_equidt(filename):
     profiles['iazi']=iazi    #atomic charge number
     profiles['nconc']=nconc  #ion concentrations
     #profiles['nprodt']=nprodt #length
-  return profiles            
+  return profiles
 
 
 def write_equigs(eq,equigsfile):
@@ -263,7 +265,7 @@ def write_equigs(eq,equigsfile):
       file.write(' Total toroidal current (kA)\n')
       equigs["torcur"] =eq['current']/1000.
       file.write(f"{equigs['torcur']:18.9E}\n") #eqdsk is in Amps, torlh in kAmps
-      
+
       file.write(' Number of poloidal modes\n')
       equigs["imom"] = torlheq_mmodes
       file.write(f"{torlheq_mmodes:5}\n")
@@ -287,7 +289,7 @@ def write_equigs(eq,equigsfile):
         formattedwrite(file,zms2d[:,i])
         formattedwrite(file,rms2d[:,i])
         formattedwrite(file,zmc2d[:,i])
-  
+
       file.write(' Safety factor\n')
       qmap=np.interp(eq['psipolmap'],eq['fluxGrid'],eq['qpsi'])
       equigs["qqf"] = qmap
@@ -313,6 +315,7 @@ def write_equigs(eq,equigsfile):
   return equigs
 
 
+
 def stix_temperature(Prf,Te,ne,A,Z,Chi):
     """
     1.32e9*np.sqrt(3.14159)/(5.64e4**2*1.32e3**2)*2*np.sqrt(3.14159)*3.14159/20/9.11e-28* 1e7/1e28
@@ -326,10 +329,10 @@ def stix_temperature(Prf,Te,ne,A,Z,Chi):
          {n_{e,20}^{2} , Z_{mathrm{mino}}^{2} , X_{mathrm{mino}}}
     }
     $$
-    
+
 
     """
-    
+
     lnlambda=24-np.log (np.sqrt(ne*1.E14)/ (Te*1000) ) #~21 for sparc Hmode
 
     xi =  0.258 * (20/lnlambda) * np.sqrt(Te)*A*Prf/( (ne *Z)**2 * Chi )
@@ -351,12 +354,14 @@ class toric_analysis:
     R.plotpower(power='PwIF',species=1) #different power profiles
     R.plot_2Dfield(component='Re2Ezeta',logl=10) #Two Dim plots of quantities
     R.plot_1Dfield(component='Re2Ezeta') #One Dim plots of quantities
-    R.threeplots() #2D Ez, electron power and poynting flux and poloidal spectrum, works for LH only, presently
+    R.threeplots() #2D Ez, electron power and poynting flux and poloidal
+                   #spectrum, works for LH only, presently
     """
 
 
-    def __init__ (self, toric_name='toric.ncdf', toric_data="toric.data", mode='ICRF',
-        idebug=False, comment='', layout='poster', path="./"):
+    def __init__ (self, toric_name='toric.ncdf', toric_data="toric.data",
+                  mode='ICRF', idebug=False, comment='', layout='poster',
+                  path="./"):
         import socket
         from time import gmtime
 
@@ -370,7 +375,7 @@ class toric_analysis:
 
         self.mylw=1.0
         self.mypt=18.0
-        self.fsc=2.0
+        self.fsc=4.0
         self.fw='bold'
         self.set_layout(layout)
 
@@ -385,23 +390,25 @@ class toric_analysis:
 
         if (self.mode[:2]=='LH'):
             self.namemap={'xpsi':'tpsi','poynt':'vpoynt','pelec':'S_eld',
-                         'e2d_z':'E2d_z_re','xplasma':'x_plasma', 'zplasma':'z_plasma',
+                 'e2d_z':'E2d_z_re','xplasma':'x_plasma', 'zplasma':'z_plasma',
                           'xeqpl':'xeqpl'}
             if self.toric_name=='None': self.toric_name='TORICLH.cdf'
         else:
             self.namemap={'xpsi':'Pw_abscissa','poynt':'PoyFlx','pelec':'PwE',
-                         'e2d_z':'Re2Ezeta','xplasma':'Xplasma', 'zplasma':'Zplasma',
-                          'xeqpl':'Ef_abscissa'}
-            
-##Open the toric netcdf file read only
+                         'e2d_z':'Re2Ezeta','xplasma':'Xplasma',
+                          'zplasma':'Zplasma', 'xeqpl':'Ef_abscissa'}
+
+##Open the toric netcdf file
         try:
-            self.cdf_hdl = nc.netcdf_file(path+self.toric_name,mmap=False )#,'r')
+            self.cdf_hdl = nc.netcdf_file(path+self.toric_name,mmap=False )
+            dvs = self.cdf_hdl.variables
         except IOError:
             print ('CRITICAL: ',self.toric_name,' not found.')
             self.cdf_hdl = -1
+            dvs = None
 
         try:
-            self.qlde_hdl = nc.netcdf_file(path+"toric_qlde.cdf",mmap=False)#,'r')
+            self.qlde_hdl = nc.netcdf_file(path+"toric_qlde.cdf",mmap=False)
         except IOError:
             print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
             self.qlde_hdl = -1
@@ -410,23 +417,24 @@ class toric_analysis:
             self.data_hdl = nc.netcdf_file(path+self.toric_data,mmap=False )
         except IOError:
             print ('CRITICAL: ',self.toric_data,' not found.')
-            self.data_hdl = None            
+            self.data_hdl = None
 
-        xx = self.cdf_hdl.variables[self.namemap['xplasma']].data
+        xx = dvs[self.namemap['xplasma']].data
         nant=1
         if self.data_hdl:
             dv=self.data_hdl.variables
             ant_ipsi= (np.abs(xx[0,:] - dv['antenna_radius'].data[0])).argmin()
-            self.antenna={'nant':nant, 'length':dv['ant_length'].data[0],
-                          'theta':dv['ant_position'].data[:nant],
-                          'rmajor':dv['antenna_radius'].data[0]+dv['axis_radius'].data[0],
-                          'radius':dv['antenna_radius'].data[0] ,'ipsi':ant_ipsi }
+            self.antenna={
+                'nant':nant, 'length':dv['ant_length'].data[0],
+                'theta':dv['ant_position'].data[:nant],
+                'rmajor':dv['antenna_radius'].data[0]+dv['axis_radius'].data[0],
+                'radius':dv['antenna_radius'].data[0],'ipsi':ant_ipsi }
         else:
-            self.antenna={'nant':1, 'length':10,
-                          'theta':0.,
-                          'rmajor':self.cdf_hdl.variables['Raxis'].data+self.cdf_hdl.variables['xedg_out'].data,
-                          'radius':self.cdf_hdl.variables['xedg_out'].data,'ipsi':1 }
-            
+            self.antenna={
+                'nant':1, 'length':10,'theta':0.,
+                'rmajor':dvs['Raxis'].data+dvs['xedg_out'].data,
+                'radius':dvs['xedg_out'].data,'ipsi':1 }
+
         self.prov["host"]=socket.getfqdn()
         self.prov["user"]=os.getenv("USER")
         self.prov["gmtime"]=gmtime()
@@ -440,7 +448,7 @@ class toric_analysis:
 
         return
 
-    
+
     def close (self):
         try:
             self.cdf_hdl.close()
@@ -456,10 +464,10 @@ class toric_analysis:
             self.data_hdl.close()
         except IOError:
             print ('Non-CRITICAL: ',path+self.toric_data,' not found.')
-            
+
         return
 
-    
+
     def info( self ):
         "Prints a list of the contents of present TORIC3D output files"
 
@@ -467,22 +475,22 @@ class toric_analysis:
             for hdl in [self.cdf_hdl]:
                 print ('The toric file, ',self.toric_name,', contains:')
                 print ('----------------------------------------------')
-                print ("The global attributes: ",self.cdf_hdl.dimensions.keys())        
+                print ("The global attributes: ",self.cdf_hdl.dimensions.keys())
                 print ("File contains the variables: ", self.cdf_hdl.variables.keys())
 
         if (self.qlde_hdl != -1):
             for hdl in [self.qlde_hdl]:
                 print ('The toric file, ',"toric_qlde.cdf",', contains:')
                 print ('----------------------------------------------')
-                print ("The global attributes: ",self.qlde_hdl.dimensions.keys()  ) 
+                print ("The global attributes: ",self.qlde_hdl.dimensions.keys()  )
                 print ("File contains the variables: ", self.qlde_hdl.variables.keys())
 
         if (self.data_hdl):
             for hdl in [self.data_hdl]:
                 print ('The toric file, ',self.toric_data,', contains:')
                 print ('----------------------------------------------')
-                print ("The global attributes: ",self.data_hdl.dimensions.keys()  ) 
-                print ("File contains the variables: ", self.data_hdl.variables.keys())                
+                print ("The global attributes: ",self.data_hdl.dimensions.keys()  )
+                print ("File contains the variables: ", self.data_hdl.variables.keys())
 
 
         print ('----------------------------------------------')
@@ -494,7 +502,7 @@ class toric_analysis:
         print ('----------------------------------------------')
         print ('Power partitions')
         for var in ['TPwIF', 'TPwIH', 'TPwEFW', 'TPwEIBW']:
-            print("{0:} {1:>3} ".format(self.cdf_hdl.variables[var].long_name.decode('UTF-8') ,  
+            print("{0:} {1:>3} ".format(self.cdf_hdl.variables[var].long_name.decode('UTF-8') ,
                             ListToFormattedString(self.cdf_hdl.variables[var].data,'{:.2f}%') ) )
 
         return
@@ -544,11 +552,12 @@ class toric_analysis:
         plt.xlabel(r'$u_{||0}/u_{n}$',size=20)
         plt.draw() #make sure ylimits are updated in displayed plot
         return
-            
+
 
     def plotpower( self, xaxis=None, power=None, species=None ):
-        """Plot power profiles versus specified radius for all, or listed species.
-           Overplots by default. species is 0 indexed.
+        """
+        Plot power profiles versus specified radius for all, or
+        listed species. Overplots by default. species is 0 indexed.
         """
 
         l=-1
@@ -570,24 +579,27 @@ class toric_analysis:
                     l=self.__plot1D(xaxis,power,idx2=species-1)#zero indexing
                 else:
                     print("Invalid species label:"+str(species))
-            plt.xlabel(r'$\sqrt{\psi_{pol}}$')
+            plt.xlabel('X/a')
         cf=plt.gcf()
         cf.subplots_adjust(bottom=0.14)
 
         return l
 
-    
+
     def psiplot( self, y ):
-        "Plot versus rhopsi. Returns handle on line to modify line style if desired using setp."
+        """
+        "Plot versus rhopsi. Returns handle on line to modify line
+        style if desired using setp.
+        """
         psi=self.namemap['xpsi']
 
         line=self.__plot1D(psi,y)
         plt.xlabel(r'$\sqrt{\psi_{pol}}$')
         plt.ylabel(y)
-            
+
         return line
 
-    
+
     def plot_1Dfield( self, component ):
         "Field versus midplane specified."
 
@@ -633,17 +645,19 @@ class toric_analysis:
 
 
     def __map_celef (self):
-        """Mapping toric field in celef.cdf to re and im parts of the three components
-        for LH mode.
+        """
+        Mapping toric field in celef.cdf to re and im parts of the three
+        components for LH mode.
         """
 
         return
 
 
     def __getvar__( self, name ):
-        """Internal function to retrieve variable from data file with checking.
         """
-        
+        Internal function to retrieve variable from data file with checking.
+        """
+
         try:
             value=self.cdf_hdl.variables[name].data
         except NameError:
@@ -679,7 +693,7 @@ class toric_analysis:
 
         return fftfield
 
-    
+
     def spectrum( self, component='undef',maxr=1.,cx=0,levels=-1, q=None ):
         """Calculate poloidal spectrum of two dimensional field component.
         """
@@ -688,7 +702,7 @@ class toric_analysis:
             radius = 'psime'
         else:
             radius = 'Pw_abscissa'
-            
+
         if (component=='undef'):
             if (self.mode[:2]=='LH'):
                 component='E2d_z_re'
@@ -715,17 +729,18 @@ class toric_analysis:
         ntt=field.shape[0]
         #nelm=int(field.shape[1]*maxr)
         nelm=int(np.size(rad)*maxr)
+        print(levels)
         if (np.size(levels)==1):
             nlevels=7
 #            levels=np.arange(nelm/nlevels,nelm-1,nelm/nlevels)
-            levels=(np.arange(nlevels)*nelm/nlevels).astype(int)
+            levels=(np.arange(nlevels)*nelm*1./nlevels).astype(int)
         else:
             levels=(np.array(levels)*nelm).astype(int)
             nlevels=np.size(levels)
 
         levels=levels[1:nlevels]
-#        levels=nelm-np.arange(1,20,2)
         rlevels=rad[levels]
+        if self.idebug: print('SPECTRUM', nelm,nlevels,levels,rlevels)
 
         th = np.arange(ntt)-ntt/2
 
@@ -734,61 +749,65 @@ class toric_analysis:
 
         i=0
         thq=th
-        for indr in range(levels.size): #levels:  #fft in python isn't normalized to N
+        for indr in range(levels.size): #levels:
+            #fft in python isn't normalized to N
             ir=levels[indr]
-            #print ('levels',ir,levels[indr],rlevels[indr],th)
-            if q!=None:
+
+            if q!=None: #JCW fix
                 thq=-2.5*(1+0.3)/(1+0.3*rlevels[indr])*(1+th/191./q(rlevels[indr]))
 
-            #print (thq)
-            ffield = ft.fftshift(np.log10(abs(ft.fft(field[:,ir]))/float(ntt)+1.e-20))
+            ffield = ft.fftshift(np.log10(abs(
+                ft.fft(field[:,ir]))/float(ntt)+1.e-20))
             ymax = np.max( [ymax, np.max(ffield)] )
             ymin = np.min( [ymin, np.min(ffield)] )
             plabel='%5.2f' % rad[ir]
             if self.bw:
-                plt.plot( thq, ffield, label=plabel, linestyle=self.ls[i],color='k')
+                plt.plot( thq, ffield, label=plabel,
+                          linestyle=self.ls[i],color='k')
                 i=i+1
             else:
                 plt.plot( thq, ffield, label=plabel )
 
-        ffield = ft.fftshift(np.log10(abs(ft.fft(field[:,nelm-1]))/float(ntt)+1.e-20))
+        ffield = ft.fftshift(np.log10(abs(
+            ft.fft(field[:,nelm-1]))/float(ntt)+1.e-20))
         ymax = np.max( [ymax, np.max(ffield)] )
         ymin = np.min( [ymin, np.min(ffield)] )
-#plot antenna spectrum
+
+        #plot antenna spectrum
         plabel='ant'
         if self.idebug: print ("range, levels", rlevels)
         if self.idebug: print ("ymax", ymax,ymin)
-        plt.plot( thq, ffield,  label=plabel, color='grey') #,linewidth=2 )
-#        cf=plt.gcf()
-#        cf.subplots_adjust(right=0.76)
-#        plt.axis ('tight')
+        plt.plot( thq, ffield,  label=plabel, color='grey')
+
         if q!=None:
             plt.axis( xmin=-8,xmax=8 )
         else:
             plt.axis( xmin=-ntt/4, xmax=ntt/4)
+
         plt.axis( ymin=-10)
-        plt.legend(loc=(1.05,0))
+        plt.legend(loc=(1.05,0),title='r/a surface',labelspacing=.1,fontsize=10)
         plt.xlabel('m')
         plt.ylabel('log10 scale')
-        plt.title('Poloidal spectrum(rhopol)')
+        plt.title('Poloidal spectrum')
+        plt.ylim(bottom=-5)
         plt.tight_layout()
         return
-    
+
 
     def set_layout( self, layout='poster' ):
 
         if (layout == 'paper'):
             self.mylw=2.0
             self.mypt=10.0
-            self.fsc=1.0
+            self.fsc=2.0
             self.fw='normal'
 
         if (layout == 'poster'):
             self.mylw=3.0
             self.mypt=20.0
-            self.fsc=1.0
+            self.fsc=4.0
             self.fw='bold'
-            
+
 
         params = {
             'axes.linewidth': self.mylw,
@@ -807,32 +826,36 @@ class toric_analysis:
         return
 
 
-#note that if plot commands are in the toplevel, they will not return
-#to the prompt, but wait to be killed.
-    def plot_2Dfield(self, component='E2d_z',species=None,logl=0,xunits=1.0,axis=(0.0,0.0),
-                     im=False, scaletop=1.0, scalebot=1.0,ax='undef',fig='undef',
+    #note that if plot commands are in the toplevel, they will not return
+    #to the prompt, but wait to be killed.
+    def plot_2Dfield(self, component='E2d_z',species=None,logl=0,
+                     xunits=1.0,axis=(0.0,0.0), im=False, cmap=None,
+                     scaletop=1.0,scalebot=1.0,ax='undef',fig='undef',
                      maxsurface=0.99,lscaletop=0.0,lscalebot=0.0):
         """
-    
-        example of using netcdf python modules to plot toric solutions
+        Example of using netcdf python modules to plot toric solutions
         requires numpy and matplotlib and netcdf modules for python.
 
         To overplot with limiter, made from efit plotter:
-        R.plot_2Dfield(component='Im2Eplus',logl=20,xunits=0.01,axis=maxis,fig=fig1)
+        R.plot_2Dfield(component='Im2Eplus',logl=20,xunits=0.01,
+                       axis=maxis,fig=fig1)
 
-        Easier is to plot solution first, then overplot limiter, scaled appropriately:
+        Easier is to plot solution first, then overplot limiter,
+        scaled appropriately:
         p.plot ( rlim*100.-maxis[0], zlim*100.-maxis[1], 'k', linewidth = 2 )
-        
+
         """
         if self.idebug: print('call args',locals() )
+        #Select color table by log, Power, or field
+        CT='jet'
 
         R0=axis[0]
         Z0=axis[1]
         barfmt='%5.2e' #'%4.1e' #'%3.1f'
-#what should colorbar with be? format=4.1e means 8 characters
-#the bar and title of the bar add about 4 characters.
-#there are 72.27 pt/in
-#12 characters * self.mypt /72.27 pt/in = #in
+        #what should colorbar with be? format=4.1e means 8 characters
+        #the bar and title of the bar add about 4 characters.
+        #there are 72.27 pt/in
+        #12 characters * self.mypt /72.27 pt/in = #in
         legend_frac=12*self.mypt/72.27
         title=component
 
@@ -848,7 +871,7 @@ class toric_analysis:
         else:
             if (component=='E2d_z'):
                 component='Ezeta'
-                
+
             if component[0]!='T':
                 im_e2dname='Im2'+component
                 if (im) : title='|'+component+'|'
@@ -861,7 +884,7 @@ class toric_analysis:
             e2d = (self.cdf_hdl.variables[component]).data
 
         if (im):
-            im_e2d=(self.cdf_hdl.variables[im_e2dname]).data 
+            im_e2d=(self.cdf_hdl.variables[im_e2dname]).data
             e2d = abs(e2d+1.0j*im_e2d)
 
         if (self.mode[:2]!='LH' and species):
@@ -882,7 +905,7 @@ class toric_analysis:
         sy=dd[1] #psi
         lastpsi=int(sy*maxsurface)
         if (self.idebug): print("2D plot shapes:",sx,sy,lastpsi,maxsurface)
-        
+
         xxx=np.zeros((sx+1,sy),'d')
         xxx[0:sx,:]=xx[:,:]
         xxx[sx,:]=xx[0,:]
@@ -896,34 +919,36 @@ class toric_analysis:
         ee2d=np.zeros((sx+1,sy),'d')
         ee2d[0:sx,:]=e2d[:,:]
         ee2d[sx,:]=e2d[0,:]
-        
+
         emax=np.max(ee2d[:,:lastpsi].ravel())
         emin=np.min(ee2d[:,:lastpsi].ravel())
 
-    #contouring levels
+        #contouring levels
         rmax=max([abs(emax),abs(emin)])*scaletop
         rmin=min([0.,emax,emin])*scalebot
         #val=arange(emin,emax,(emax-emin)/25.,'d')
+        print("2D rmax", rmax)
+        if not rmax: rmax=1e4
         val=np.arange(-rmax*1.1,rmax*1.1,(rmax+rmax)/25.,'d')
         if (im):
             val=np.arange(rmin,rmax*1.1,(rmax)/24.,'d')
         if self.idebug: print ("values",val)
 
-    #reverse redblue map so red is positive
+        #reverse redblue map so red is positive
            # revRBmap=cmap_xmap(lambda x: 1.-x, cm.get_cmap('RdBu'))
 
-    #finally, make the plot
+           #finally, make the plot
         cwidth=xxx.max()-xxx.min()
         cheight=yyy.max()-yyy.min()
         asp=cheight/cwidth
         if self.idebug: print ("plot aspect ratio:", asp)
 
-    #leave space for bar
+        #leave space for bar
         if (fig=='undef'):
             fig=plt.figure(figsize=(self.fsc*3.0+legend_frac,3.0*self.fsc*asp))
             fig.subplots_adjust(left=0.02,bottom=0.15,top=0.90)
 
-        sax=plt.axes().set_aspect(1, 'box') # the right way to control aspect ratio
+        sax=plt.axes().set_aspect(1, 'box')
 
         maxpsi=xxx.shape[1]-1
         plt.plot(xxx[:,maxpsi],yyy[:,maxpsi],'k-')
@@ -932,23 +957,25 @@ class toric_analysis:
         lcfpsi=self.cdf_hdl.dimensions['PsiPwdDim']
         plt.plot(xxx[:,lcfpsi],yyy[:,lcfpsi],'grey')
 
-        
-    #read ant length.  Calculate arc length vs theta to this value/2
-    #in each direction, this plots the antenna location
+
+        #read ant length.  Calculate arc length vs theta to this value/2
+        #in each direction, this plots the antenna location
         anthw=max(int(sx*0.01),4)
-        ant_it_height= 10 #int(sx*self.antenna['length']/2/ ( 2.*np.pi * self.antenna['radius'] ) )
-        
+        ant_it_height= int(sx*self.antenna['length']/2/
+                           ( 2.*np.pi * self.antenna['radius'] ) )
+
         ant_it_pos   =int(self.antenna['theta']*sx/360.)
-        #plt.plot(xxx[sx-anthw+1:sx+1,maxpsi],yyy[sx-anthw+1:sx+1,maxpsi],'g-',linewidth=6)
-        #plt.plot(xxx[0:anthw,maxpsi],yyy[0:anthw,maxpsi],'g-',linewidth=6)
         r1=np.arange(  ant_it_pos, ant_it_pos+ant_it_height+1)%sx
         r2=np.arange( (ant_it_pos-ant_it_height), (ant_it_pos+1))%sx
-        plt.plot(  xxx[ r1, self.antenna['ipsi'] ], yyy[ r1, self.antenna['ipsi'] ],
+        plt.plot(  xxx[ r1, self.antenna['ipsi'] ],
+                   yyy[ r1, self.antenna['ipsi'] ],
                    'orange',linewidth=4 )
-        plt.plot(  xxx[ r2, self.antenna['ipsi'] ], yyy[ r2, self.antenna['ipsi'] ],
+        plt.plot(  xxx[ r2, self.antenna['ipsi'] ],
+                   yyy[ r2, self.antenna['ipsi'] ],
                    'orange',linewidth=4 )
 
-        if self.idebug: print("antenna: ", yyy[sx-anthw+1:sx+1,maxpsi], 'it:',ant_it_pos,ant_it_height,sx)
+        if self.idebug: print("antenna: ", yyy[sx-anthw+1:sx+1,maxpsi], 'it:',
+                              ant_it_pos,ant_it_height,sx)
         if self.label:
             ax=plt.gca()
             sublabel=self.prov['path']
@@ -959,63 +986,80 @@ class toric_analysis:
             title='log10 '+title
             barfmt='%6.2e'
 
-    ##labels and titles
-    #xlabel(getattr(xx,'long_name')+'('+getattr(xx,'units')+')')
-    #ylabel(getattr(yy,'long_name')+'('+getattr(yy,'units')+')')
-    #title(getattr(e2d,'long_name')+'('+getattr(e2d,'units')+')')
+            ##labels and titles
+            #xlabel(getattr(xx,'long_name')+'('+getattr(xx,'units')+')')
+            #ylabel(getattr(yy,'long_name')+'('+getattr(yy,'units')+')')
+            #title(getattr(e2d,'long_name')+'('+getattr(e2d,'units')+')')
         plt.xlabel('X(cm)')
         plt.ylabel('Z(cm)')
         plt.title(title,fontsize=self.mypt+2.0)
 
 
         if (logl <= 0):
+            if not cmap: cmap='seismic'
             CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],
-                            ee2d[:,:lastpsi],val,cmap=cm.jet)
-#            for it in range(sx):
-#                PS=plt.plot(xxx[it,:lastpsi],yyy[it,:lastpsi],'k')
-#            for ip in range(sy):
-#                PS=plt.plot(xxx[:,ip],yyy[:,ip],'b')
-            
+                            ee2d[:,:lastpsi],val,cmap=cmap) #cm.jet)
+            #            for it in range(sx):
+            #                PS=plt.plot(xxx[it,:lastpsi],yyy[it,:lastpsi],'k')
+            #            for ip in range(sy):
+            #                PS=plt.plot(xxx[:,ip],yyy[:,ip],'b')
+
 
         if (logl > 0):
-#            lee2d=np.sign(ee2d)*np.log(np.sqrt(np.abs(ee2d)**2+1)+np.abs(ee2d))/np.log(10)
+            if not cmap: cmap='hot'
             lee2d=np.log(np.abs(ee2d[:,:lastpsi])+1.0)/np.log(10)
             rmax=lee2d.ravel()[lee2d[:,:lastpsi].argmax()]+lscaletop
             rmin=lee2d.ravel()[lee2d[:,:lastpsi].argmin()]+lscalebot
             val=np.arange(rmin,rmax,(rmax-rmin)/(logl*1.0),'d')
-            CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],lee2d[:,:lastpsi],val,cmap=cm.jet)
+            CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],
+                            lee2d[:,:lastpsi],val,cmap=cmap) #cm.jet)
 
-##put the contour scales on the plot
-#tricky, fraction needs to be specified to be part by which horizontal exceed vertical
+            ##put the contour scales on the plot
+            #tricky, fraction needs to be specified to be part by which
+            #horizontal exceed vertical
 
         cbar=plt.colorbar(CS,format=barfmt,ax=sax)
         cbar.ax.set_ylabel('levels')
-        plt.tight_layout()            
+        plt.tight_layout()
 
-        
+
         if self.idebug: print ("contour values",CS.levels,'|',rmax,rmin)
 
         return CS,cbar
 
-  
-        
-### user routines using the above, could be in a different module
+
+    ### user routines using the above, could be in a different module
+    def get_power1D( self, spec ):
+        "Plots power across the midplant by averaging over Z"
+        from scipy.interpolate import griddata
+        X1D=self.cdf_hdl.variables['Ef_abscissa'][:]
+        Z1D=np.zeros(len(X1D))
+        XX=V1E.cdf_hdl.variables['Xplasma']
+        ZZ=V1E.cdf_hdl.variables['Zplasma']
+        pwr=V1E.cdf_hdl.variables['TDPwE']
+
+        grid_e = griddata( (XX[:,:].ravel(),ZZ[:,:].ravel()), pwr[:,:].ravel(),
+                           (X1D[None,:],Z1D[0,None]), method='nearest')
+        return X1D, pwr, slabpwr
+
+    
     def powpoynt( self ):
         "Plots powers and poynting flux"
         import matplotlib.colors as mcolors
         pcolors=list(mcolors.BASE_COLORS)
-        
+
         fig = plt.figure(figsize=(12,9) )
         ax1 = fig.add_subplot(111)
         ax1.set_prop_cycle(color=['orange', 'green', 'blue','grey'],
                   marker=['o', '+', 'x','o'])
 
         line1,=self.psiplot(self.namemap['pelec'])
-#can use setp(lines, ) to change plot properties.
+        #can use setp(lines, ) to change plot properties.
         plt.setp(line1,label='electrons')
 
 
-#add first two species if ICRF, add logic to plot if power percent is larger than 0.5%
+        #add first two species if ICRF, add logic to plot if power percent
+        #is larger than 0.5%
         if (self.mode[:2]!='LH'):
             nspec=self.cdf_hdl.dimensions['SpecDim']
             if self.idebug: print(self.nml['equidata'] )
@@ -1041,7 +1085,7 @@ class toric_analysis:
                     idx+=1
                     lines.append(ltemp)
 
-           
+
 
         ax2 = ax1.twinx()
         line20,=self.psiplot(self.namemap['poynt'])
@@ -1052,48 +1096,49 @@ class toric_analysis:
         if (self.idebug):
             for ll in lines:
                 print('lines',ll, type(ll) ) #.get_label() )
-            
-#set axis floor at 0
+
+        #set axis floor at 0
         #plt.gca().set_ylim(0)
         ax1.set_ylim(0)
         ax2.set_ylim(0)
-        ax1.set_ylabel('Power',color='b')        
-#change color and symbol
+        ax1.set_ylabel('Power',color='b')
+        #change color and symbol
         plt.setp(line20,color='r', label='<ExB>')
         ax2.set_ylabel('Poynting',color='r')
         ax2.ticklabel_format(axis='y', style='sci', scilimits=(0,0))
 
-#make  legend too
-        plt.legend( handles=lines, loc='center right', #line1,line2,line4,line6], loc='center right', 
+        #make  legend too
+        plt.legend( handles=lines, loc='center right', 
                      ncol=1, fancybox=True, shadow=True)
 
         plt.xlim( [0,1] )
         plt.tight_layout()
         plt.draw()
         return fig
-    
+
 
     def powerion( self ):
         "Plots electron power and poynting flux"
         fig = plt.figure()
         ax1 = fig.add_subplot(111)
         line1,=self.psiplot(self.namemap['pelec'])
-#can use setp(lines, ) to change plot properties.
+        #can use setp(lines, ) to change plot properties.
         plt.setp(line1,color='b',marker='+',label='seld')
         ax1.set_ylabel('Power_e',color='b')
 
         ax2 = ax1.twinx()
         line2,=self.psiplot(self.namemap['poynt'])
-#set axis floor at 0
+        #set axis floor at 0
         plt.gca().set_ylim(0)
-#change color and symbol
+        #change color and symbol
         plt.setp(line2,color='r',marker='.',label='Poynt')
         ax2.set_ylabel('Poynting',color='r')
-#make  legend too
+        #make  legend too
         plt.legend( (line1,line2), (r'$P_{eld}$','<ExB>'),loc=2 )
         plt.axes().set_aspect(1, 'box')
-        fig.subplots_adjust(left=0.12,bottom=0.12,top=0.96,right=0.82,hspace=0.32)
-        sax=plt.axes().set_aspect(1, 'box') 
+        fig.subplots_adjust(left=0.12,bottom=0.12,top=0.96,
+                            right=0.82,hspace=0.32)
+        sax=plt.axes().set_aspect(1, 'box')
 
         plt.draw()
         return fig
@@ -1107,15 +1152,15 @@ class toric_analysis:
 
 
     def get_power2D( self ):
-#figure out a sed way of cutting these lines into the file.
-#also need to replace '-0.' with ' -0.'
-#sed -n -e '/elec/,/,/p' filename | sed -e '/-0\./ -0./g' > torica_2dpower.sol
+        #figure out a sed way of cutting these lines into the file.
+        #also need to replace '-0.' with ' -0.'
+        #sed -n -e '/elec/,/,/p' filename | sed -e '/-0\./ -0./g' > torica_2dpower.sol
         try:
             toricsol = open('torica_2dpower.sol','r')
         except IOError:
             print ('CRITICAL: torica_2dpower.sol not found.')
             print ('Try to generate:')
-#            cmd="sed -n '/elec/,/,/ s/-0\./ -0./pg'  < torica.sol > torica_2dpower.sol"
+
             if (self.mode[:2]=='LH'):
                 cmd="sed -n  '/elec/,$p' torica.sol| sed 's/-0\\./ -0./g' > torica_2dpower.sol"
             else:
@@ -1124,17 +1169,17 @@ class toric_analysis:
             os.system(cmd)
             toricsol = open('torica_2dpower.sol','r')
 
-#skip title and max value
+        #skip title and max value
         toricsol.readline()
         toricsol.readline()
 
-        if (self.mode[:2]=='LH'):        
+        if (self.mode[:2]=='LH'):
             nt=self.cdf_hdl.dimensions['ntt']
             nr=self.cdf_hdl.dimensions['mptpsi']
         else:
             nt=self.cdf_hdl.dimensions['ThetaDim']
             nr=self.cdf_hdl.dimensions['PsiPwdDim']
-            
+
         power=np.fromfile(toricsol,sep=" ",count=nt*nr,dtype=float)
         toricsol.close()
 
@@ -1143,33 +1188,37 @@ class toric_analysis:
 
 
     def threeplots( self, prefix='' ):
-        """Makes and saves the three most commonly used plots. Plots are saved in 
-        the current directory. An optional prefix can be used to label them or change
-        the save path.
+        """
+        Makes and saves the three most commonly used plots. Plots are saved in
+        the current directory. An optional prefix can be used to label them or
+        change the save path.
         * Power and poynting flux on one plot as eps.
-        * The polodial power spectrum on six flux surfaces for convergence as eps.
-        * And the 2D parallel electric field contour plot as a png."""
-
+        * The polodial power spectrum on six flux surfaces for convergence
+          as eps.
+        * And the 2D parallel electric field contour plot as a png.
+        """
 
         f1=plt.figure()
 
-        self.spectrum(cx=1)
+        self.spectrum(cx=1,levels=np.linspace(0.,0.98,12))
         plt.draw()
         plt.savefig(prefix+'spectrum.pdf',format='pdf')
         plt.savefig(prefix+'spectrum.png',format='png')
 
-        if (self.mode[:2]!='LH'):        
-            f2a=plt.figure(figsize=(8,12))
-            self.plot_2Dfield(component='Eplus', maxsurface=0.93,lscaletop=0,im=True,logl=25,fig=f2a)
+        if (self.mode[:2]!='LH'):
+            f2a=plt.figure()#figsize=(8,12))
+            self.plot_2Dfield(component='Eplus', maxsurface=0.93,
+                              lscaletop=0,im=True, logl=25,fig=f2a)
             plt.draw()
             plt.savefig('log10Eplus2d.png',format='png')
             f2b=plt.figure(figsize=(8,12))
-            self.plot_2Dfield(component='Eplus',maxsurface=0.93,fig=f2b)#,scaletop=.4,scalebot=0.2)
+            self.plot_2Dfield(component='Eplus', maxsurface=0.93,fig=f2b)
+            #,scaletop=.4,scalebot=0.2)
             plt.draw()
             plt.savefig('Eplus2d.png',format='png')
-            
-        f3=plt.figure(figsize=(8,12))
-        self.plot_2Dfield(im=True,logl=25,fig=f3)#,scaletop=0.8)
+
+        f3=plt.figure()#figsize=(8,12))
+        self.plot_2Dfield(im=True,logl=25,fig=f3)#,scaletop=0.8) #default to Ez
         plt.draw()
         plt.savefig(prefix+'log10Ez2d.png',format='png')
 
@@ -1179,77 +1228,274 @@ class toric_analysis:
         plt.savefig(prefix+'powerpoynt.pdf',format='pdf')
         plt.savefig(prefix+'powerpoynt.png',format='png')
 
+        f3=plt.figure()#figsize=(8,12))
+        self.plot_2Dfield(component='TDPwE',logl=25,fig=f3)#,scaletop=0.8)
+        plt.draw()
+        plt.savefig(prefix+'P_ELD.png',format='png')
+
+        f3=plt.figure()#figsize=(8,12))
+        self.plot_2Dfield(component='TDPwEIBW',logl=25,fig=f3)#,scaletop=0.8)
+        plt.draw()
+        plt.savefig(prefix+'P_IBW.png',format='png')
+
+        f3=plt.figure()#figsize=(8,12))
+        self.plot_2Dfield(component='TDPwIF',species=1,logl=25,fig=f3)
+        plt.draw()
+        plt.savefig(prefix+'P_IF1.png',format='png')
+
+        f3=plt.figure()#figsize=(8,12))
+        self.plot_2Dfield(component='TdPwIH',species=1,logl=25,fig=f3)
+        plt.draw()
+        plt.savefig(prefix+'P_IH1.png',format='png')
+
+        f3=plt.figure()#figsize=(8,12))
+        self.plot_2Dfield(component='TDPwIF',species=2,logl=25,fig=f3)
+        plt.draw()
+        plt.savefig(prefix+'P_IF2.png',format='png')
+
+        f3=plt.figure()#figsize=(8,12))
+        self.plot_2Dfield(component='TdPwIH',species=2,logl=25,fig=f3)
+        plt.draw()
+        plt.savefig(prefix+'P_IH2.png',format='png')
+
         return
 
-    
-#Handling equigs file
-    def __get_varname(self, f):
-        "Reads next line from file f and returns it, optionally printing it."
-        varname=f.readline()
-        if self.idebug:
-            print (f.name,varname)
-        return varname
 
-    
     def read_equigs(self, equigsfile='equigs.data'):
         "Read the equilibrium file created by toric in toricmode='equil',isol=0."
         if self.idebug:
             print ("Using ", equigsfile)
-        equigs_hdl=open(equigsfile,'r')
 
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
-        imom = self.equigs["imom"]
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=int)[0]
-        nmhd = self.equigs["nmhd"]
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-        #this needs to be reshaped or remapped into the R,Z sin cos arrays toric uses
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
-                                                count=2*nmhd+4*nmhd*imom,dtype=float)
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-        #logic checking for "END"
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",count=nmhd,dtype=float)
-
-        varname = self.__get_varname(equigs_hdl)
-        self.equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",count=1,dtype=float)[0]
-
-        equigs_hdl.close()
-
+        self.equigs = read_equigsfile(equigsfile)
         return
+    
 
 
-    def read_diag(self, diagfile='toric.asc'):
-        return
+def read_equigsfile(equigsfile='equigs.data'):
+   "Read the equilibrium file created by toric in toricmode='equil',isol=0."
+
+   def __get_varname(f, debug=False):
+       "Reads next line from file f and returns it, optionally printing it."
+       varname=f.readline()
+       if debug:
+           print (f.name,varname)
+        return varname
+
+    equigs_hdl=open(equigsfile,'r')
+    equigs = {}
+    equigs['file']=equigsfile
+    
+    varname = __get_varname(equigs_hdl)
+    equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",
+                                  count=1,dtype=float)[0]
+
+    varname = __get_varname(equigs_hdl)
+    equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",
+                                 count=1,dtype=float)[0]
+
+    varname = __get_varname(equigs_hdl)
+    equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",
+                                  count=1,dtype=float)[0]
+
+    varname = __get_varname(equigs_hdl)
+    equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",
+                                  count=1,dtype=float)[0]
+
+    varname = __get_varname(equigs_hdl)
+    equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",
+                                 count=1,dtype=int)[0]
+    imom = equigs["imom"]
+
+    varname = __get_varname(equigs_hdl)
+    equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",
+                                 count=1,dtype=int)[0]
+    nmhd = equigs["nmhd"]
+
+    varname = __get_varname(equigs_hdl)
+    equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",
+                                 count=nmhd,dtype=float)
+
+    #this needs to be reshaped or remapped into the R,Z sin cos
+    #arrays toric uses
+    varname = __get_varname(equigs_hdl)
+    equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
+                                    count=2*nmhd+4*nmhd*imom,dtype=float)
+
+    varname = __get_varname(equigs_hdl)
+    equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",
+                                count=nmhd,dtype=float)
+
+    #logic checking for "END"
+    varname = __get_varname(equigs_hdl)
+    equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",
+                                  count=nmhd,dtype=float)
+    
+    varname = __get_varname(equigs_hdl)
+    equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",
+                                count=nmhd,dtype=float)
+
+    varname = __get_varname(equigs_hdl)
+    equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",
+                                   count=nmhd,dtype=float)
+
+    varname = __get_varname(equigs_hdl)
+    equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",
+                                    count=1,dtype=float)[0]
+
+    equigs_hdl.close()
+
+    return equigs
+
+
+def plot_equigs(equigs, ntheta=65):
+    imom=Diab.equigs['imom'] 
+    nmhd=Diab.equigs['nmhd']
+    rmc2d0 =Diab.equigs['rzmcs2d'][0:nmhd]  #center of each flux surface. first term is magnetic axis.
+    zmc2d0 =Diab.equigs['rzmcs2d'][nmhd:2*nmhd]
+    rz=Diab.equigs['rzmcs2d'][2*nmhd:].reshape( (nmhd,4,imom), order='F' )
+
+    Raxis=rmc2d0[0]
+    rminor= (np.sum(rz[:,0,:],1)+ rmc2d0) - Raxis
+    Rmajor=np.sum(rz[:,0,:],1) + rmc2d0
+
+    #we keep the m=0 mode for sin coefficients for consistency
+    rmc2d=np.zeros([nmhd,imom+1])
+    rms2d=np.zeros([nmhd,imom+1])
+    zmc2d=np.zeros([nmhd,imom+1])
+    zms2d=np.zeros([nmhd,imom+1])
+
+    rmc2d[:,0]=rmc2d0
+    zmc2d[:,0]=zmc2d0
+    rmc2d[:,1:]=rz[:,0,:]
+    zms2d[:,1:]=rz[:,1,:]
+    rms2d[:,1:]=rz[:,2,:]
+    zmc2d[:,1:]=rz[:,3,:]
+
+    rtest=np.zeros([nmhd,ntheta])
+    ztest=np.zeros([nmhd,ntheta])
+    theta = np.linspace(0,2.*np.pi,ntheta,endpoint=False)
+
+    idx = np.linspace(0,imom+1,imom+1)
+    for i in range(nmhd):
+        for j in range(len(theta)):
+            th=theta[j]
+            rtest[i,j]=np.sum(rmc2d[i,:]*np.cos(th*idx)+ rms2d[i,:]*np.sin(th*idx) )
+            ztest[i,j]=np.sum(zmc2d[i,:]*np.cos(th*idx)+ zms2d[i,:]*np.sin(th*idx) )
+
+    #Plot coordinate mesh
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.set_aspect('equal')
+    fig.set_figheight(20)
+
+    #Theta lines
+    for i in np.arange(0,len(rtest[0,:]),2):
+        plt.plot(rtest[:,i],ztest[:,i])
+
+    #Psi surface
+    for i in np.arange(0,len(rtest[:,0]),10):
+        plt.plot(rtest[i,:],ztest[i,:])
+        plt.plot(rtest[-1,:],ztest[-1,:])
+
+    plt.title('Toric Eq from equigs file',equigs['file']);
+
+    return
+
+
+def XZ_from_equigs(equigs,dpsi=0,dtheta=0):
+    imom=equigs['imom'] 
+    nmhd=equigs['nmhd']
+    rmc2d0 =equigs['rzmcs2d'][0:nmhd]  #center of each flux surface. first term is magnetic axis.
+    zmc2d0 =equigs['rzmcs2d'][nmhd:2*nmhd]
+    rz=equigs['rzmcs2d'][2*nmhd:].reshape( (nmhd,4,imom), order='F' )
+    rmc2d=rz[:,0,:]
+    zms2d=rz[:,1,:]
+    rms2d=rz[:,2,:]
+    zmc2d=rz[:,3,:]
+    return
 
     
+
+def plot_diag(diag):
+    #pgridx,pgridy,tgridx,tgridy,igsmhd,iqtest,ncopsi,jptheta,ntt,lpl=read_diag(diag)
+    print ("toric.asc: Settings and dimensions: ",igsmhd,iqtest,ncopsi,jptheta,ntt,lpl)
+    fig_grid=plt.figure()
+    ax=fig_grid.add_subplot(111)
+    ax.set_aspect('equal')
+    fig_grid.suptitle('Eq from diag output',fontsize=16)
+    for i in range(ncopsi):
+        plt.plot(pgridx[i],pgridy[i],'k')
+        for i in range(ntt):
+            plt.plot(tgridx[i],tgridy[i],'b')
+        #plt.plot(splotx,sploty,'g');
+        plt.plot(pgridx[0],pgridy[0],'g');
+        plt.contour(eq0['r']*100-42,eq0['z']*100,eq0['psizr'].T,20,colors='r');
+    return
+    
+    
+    
+def read_diag(diagfile='toric.asc'):
+    "Parse the ASCII formatted diagnostic output for the equilibrium mesh"
+    import re #works but could be converted to fortran formatted read
+    toric_diag=open(diagfile).readlines()
+
+    gridstart=re.compile('Magnetic configuration')
+    for idx in range(len(toric_diag)):
+        l=toric_diag[idx]
+        if gridstart.findall(l):
+            lgrid=idx
+            print (l=='Magnetic configuration\n',toric_diag[lgrid])
+
+    #Get settings
+    igsmhd,iqtest=np.fromstring(toric_diag[lgrid+1],dtype=int,sep=' ')
+    ncopsi,jptheta=np.fromstring(toric_diag[lgrid+2],dtype=int,sep=' ')
+
+    #formatting is 6E13.8, jptheta/6 should be number of lines
+    nlines=int(np.ceil(jptheta/6))
+
+    splotx=np.fromstring(''.join(toric_diag[lgrid+3:lgrid+3+nlines]),sep=' ')
+    sploty=np.fromstring(''.join(toric_diag[lgrid+3+nlines:lgrid+3+2*nlines]),
+                         sep=' ')
+
+    next=lgrid+3+2*nlines
+    title=toric_diag[next]
+    print("title",title,nlines)
+    next+=1
+
+    pgridx=[]
+    pgridy=[]
+    pgridx.append(splotx)
+    pgridy.append(sploty)
+    for i in range(ncopsi+1):
+        pgridx.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+                                    sep=' '))
+        next+=nlines
+        pgridy.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+                                    sep=' '))
+        next+=nlines
+
+    title=toric_diag[next]
+    next+=1
+
+    ntt,lpl=np.fromstring(toric_diag[next],dtype=int,sep=' ')
+    next+=1
+    tgridx=[]
+    tgridy=[]
+    nlines=int(np.ceil(lpl/6))
+    for i in range(ntt):
+        tgridx.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+                                    sep=' '))
+        next+=nlines
+        tgridy.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+                                    sep=' '))
+        next+=nlines
+
+    #print ("Next group is ",toric_diag[next])
+    diag={'pgridx':pgridx,'pgridy':pgridy,'tgridx':tgridx,'tgridy':tgridy,
+          'igsmhd':igsmhd,'iqtest':iqtest,'ncopsi':ncopsi,'jptheta':jptheta,
+          'ntt':ntt,'lpl':lpl}
+    return pgridx,pgridy,tgridx,tgridy,igsmhd,iqtest,ncopsi,jptheta,ntt,lpl
+
 
 ####main block
 if __name__ == '__main__':
@@ -1263,7 +1509,8 @@ if __name__ == '__main__':
     iprefix=""
     ifile="TORICLH.cdf"
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hp:f:",["help","prefix=","file="])
+        opts, args = getopt.getopt(sys.argv[1:], "hp:f:",["help","prefix=",
+                                                          "file="])
     except getopt.GetoptError:
         print ("Accepted flags are help and prefix=")
         sys.exit(2)
@@ -1289,15 +1536,18 @@ if __name__ == '__main__':
 class toric_file():
     def __init__(self,toric_name='fort.9',lean=True):
         #open cql3d netcdf
-        #-----------------------------------------------------------------------------
+        #------------------------------------------------------------------------
         try:
             toric_nc = spio.netcdf_file(toric_name,'r')
         except:
-            print('toric_file initialization failed: could not find ncdf: ',toric_name)
-            raise Exception('toric_file initialization failed: could not find ncdf: ',toric_name)
+            print('toric_file initialization failed: could not find ncdf: ',
+                  toric_name)
+            raise Exception(
+                'toric_file initialization failed: could not find ncdf: ',
+                toric_name)
 
         #read in cdf dimensions
-        #-----------------------------------------------------------------------------
+        #------------------------------------------------------------------------
         self.n_of_field_comp  = np.copy(toric_nc.dimensions['n_of_field_comp'])
         self.n_of_pol_modes   = np.copy(toric_nc.dimensions['n_of_pol_modes'])
         self.n_of_pol_pts     = np.copy(toric_nc.dimensions['n_of_pol_pts'])
@@ -1318,7 +1568,7 @@ class toric_file():
         self.nmhd  = self.n_of_mhd_rad_pts
 
         #read in cdf variables
-        #-----------------------------------------------------------------------------
+        #------------------------------------------------------------------------
         if(lean==False):
             self.enhcol = np.copy(toric_nc.variables['enhcol'].data)
             self.dnures = np.copy(toric_nc.variables['dnures'].data)
@@ -1401,5 +1651,3 @@ class toric_file():
         self.ib_power_elec = np.copy(toric_nc.variables['ib_power_elec'].data)
         self.ICfund_power_ions = np.copy(toric_nc.variables['ICfund_power_ions'].data)
         self.ICharm_power_ions = np.copy(toric_nc.variables['ICharm_pwer_ions'].data)
-    
- 
