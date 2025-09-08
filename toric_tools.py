@@ -1279,72 +1279,72 @@ def read_equigsfile(equigsfile='equigs.data'):
        varname=f.readline()
        if debug:
            print (f.name,varname)
-        return varname
+       return varname
 
-    equigs_hdl=open(equigsfile,'r')
-    equigs = {}
-    equigs['file']=equigsfile
+   equigs_hdl=open(equigsfile,'r')
+   equigs = {}
+   equigs['file']=equigsfile
     
-    varname = __get_varname(equigs_hdl)
-    equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",
+   varname = __get_varname(equigs_hdl)
+   equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",
                                   count=1,dtype=float)[0]
 
-    varname = __get_varname(equigs_hdl)
-    equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",
+   varname = __get_varname(equigs_hdl)
+   equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",
                                  count=1,dtype=float)[0]
 
-    varname = __get_varname(equigs_hdl)
-    equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",
+   varname = __get_varname(equigs_hdl)
+   equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",
                                   count=1,dtype=float)[0]
 
-    varname = __get_varname(equigs_hdl)
-    equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",
+   varname = __get_varname(equigs_hdl)
+   equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",
                                   count=1,dtype=float)[0]
 
-    varname = __get_varname(equigs_hdl)
-    equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",
+   varname = __get_varname(equigs_hdl)
+   equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",
                                  count=1,dtype=int)[0]
-    imom = equigs["imom"]
+   imom = equigs["imom"]
 
-    varname = __get_varname(equigs_hdl)
-    equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",
+   varname = __get_varname(equigs_hdl)
+   equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",
                                  count=1,dtype=int)[0]
-    nmhd = equigs["nmhd"]
+   nmhd = equigs["nmhd"]
 
-    varname = __get_varname(equigs_hdl)
-    equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",
+   varname = __get_varname(equigs_hdl)
+   equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",
                                  count=nmhd,dtype=float)
 
-    #this needs to be reshaped or remapped into the R,Z sin cos
-    #arrays toric uses
-    varname = __get_varname(equigs_hdl)
-    equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
-                                    count=2*nmhd+4*nmhd*imom,dtype=float)
+   #this needs to be reshaped or remapped into the R,Z sin cos
+   #arrays toric uses
+   varname = __get_varname(equigs_hdl)
+   equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
+                                   count=2*nmhd+4*nmhd*imom,dtype=float)
 
-    varname = __get_varname(equigs_hdl)
-    equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",
-                                count=nmhd,dtype=float)
+   varname = __get_varname(equigs_hdl)
+   equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",
+                               count=nmhd,dtype=float)
 
-    #logic checking for "END"
-    varname = __get_varname(equigs_hdl)
-    equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",
-                                  count=nmhd,dtype=float)
+   #logic checking for "END"
+   varname = __get_varname(equigs_hdl)
+   equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",
+                                 count=nmhd,dtype=float)
     
-    varname = __get_varname(equigs_hdl)
-    equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",
-                                count=nmhd,dtype=float)
+   varname = __get_varname(equigs_hdl)
+   equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",
+                               count=nmhd,dtype=float)
 
-    varname = __get_varname(equigs_hdl)
-    equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",
-                                   count=nmhd,dtype=float)
+   varname = __get_varname(equigs_hdl)
+   equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",
+                                  count=nmhd,dtype=float)
 
-    varname = __get_varname(equigs_hdl)
-    equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",
-                                    count=1,dtype=float)[0]
+   varname = __get_varname(equigs_hdl)
+   equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",
+                                   count=1,dtype=float)[0]
+   
+   equigs_hdl.close()
 
-    equigs_hdl.close()
-
-    return equigs
+   return equigs
 
 
 def plot_equigs(equigs, ntheta=65):
