@@ -348,6 +348,22 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
             if (dolimiter):
                 ax.plot ( rlim, zlim, 'g', linewidth = 4 )
 
+#    Xmap and Zmap are X,Z(Psi,threta)             
+#    nmhd=100 ; ntheta = 128 ; imom = 16
+#    rmc2d=np.zeros([nmhd,imom+1])
+#    rms2d=np.zeros([nmhd,imom+1])
+#    zmc2d=np.zeros([nmhd,imom+1])
+#    zms2d=np.zeros([nmhd,imom+1])
+#    for i in range(nmhd):
+#        cX=sft.fft(Xmap[i,:])/np.float(ntheta)
+#        cZ=sft.fft(Zmap[i,:])/np.float(ntheta)
+#        rmc2d[i,0]=np.real(cX[0])
+#        rmc2d[i,1:]=np.real(cX[1:imom+1]+np.flip(cX)[0:imom])
+#        rms2d[i,1:]=np.real((cX[1:imom+1]-np.flip(cX)[0:imom])*complex(0.,1,))
+#        zmc2d[i,0]=np.real(cZ[0])
+#        zmc2d[i,1:]=np.real(cZ[1:imom+1]+np.flip(cZ)[0:imom])
+#        zms2d[i,1:]=np.real((cZ[1:imom+1]-np.flip(cZ)[0:imom])*complex(0.,1,))
+
 
     eqdsk = {'nW':nw, 'nH':nh, 'nbbbs':nbbbs, 'limitr':limitr, 'rdim':rdim,
              'zdim':zdim, 'rcentr':rcentr, 'rleft':rleft, 'zmid':zmid,
@@ -355,8 +371,9 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
              'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z, 'psirz':psizr.T,
-             'fluxGrid':fluxGrid, 'iiInside':iiInside, 'cocos':cocos, 'name':filename}
-
+             'fluxGrid':fluxGrid, 'cocos':cocos, 'name':filename}
+#    eqdsk['rzmc2d']=[rmc2d,rms2d,zmc2d,zms2d]
+    
     return eqdsk,fig
 
 
@@ -430,7 +447,7 @@ def getModB(eq,rdict=False):
     Bv = (BR,Bphi,BZ)
 #    BV=( +sbp*psi_int_z/Rv, fpolRZ/Rv, -sbp*psi_int_r/Rv) #R,phi,Z for cocos1/11 and 3/13
     #Add components
-    if rdict:  return {'modB':modB }
+    if rdict:  return {'modB':modB,'grad_psi':grad_psi,'fpolRZ':fpolRZ,'Rv':Rv,'Zv':Zv,'Bv':Bv}
     return modB,grad_psi,fpolRZ,Rv,Zv,Bv
 
 
@@ -476,7 +493,7 @@ def plotEQDSK(eq,asp=1.0):
     ax1.plot(R,BV[2][:,nz2-1],'orange',label='BZ-mid')
     ax1.plot(R,BV[0][:,nz2-1],'r-.',label='BR-mid')
     ax1.plot(R,BV[0][:,int(nz2*3/2)-1],'r-.',label='BR-3/4')
-    ax1.legend(bbox_to_anchor=(-0.1,0.5))
+    ax1.legend(bbox_to_anchor=(-0.1,0.75))
 
     ax2.set_title('Flux surfaces')
     ax2.contour (Rv, Zv, eq['psizr'], 40 )
@@ -502,8 +519,12 @@ def plotEQDSK(eq,asp=1.0):
     for i, (key, value) in enumerate(eq.items()):
         if i>14: break
         if i>8: hcol=1
+        if i<4:
+            textformat= f'{key}: {value:4d}'
+        else:
+            textformat= f'{key}: {value:5.2f}'
         ax4.text(0.1+hcol*0.4, 0.9 - (i + 1) * 0.09+hcol*8*0.09,
-                 f'{key}: {value:5.2f}', ha='left', va='center', fontsize=12)
+                textformat, ha='left', va='center', fontsize=12)
 
 
 def writeEQDSK(eq,fname):
