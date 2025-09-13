@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-##!/opt/bin/python
 #upgrading to scipy version 0.100dev , changing interface
 import numpy as np
 import numpy.fft as ft
@@ -10,7 +9,6 @@ from matplotlib import ticker, cm
 import f90nml
 
 #other deps below
-    #import f90nml
     #from periodictable import elements
 
 def print_vector(nrep,fstr,a):
@@ -56,6 +54,8 @@ def get_spec_toric(toricnml):
 
     spec_toric=list(zip(map(round,toricnml['equidata']['atm']),
                         map(int,toricnml['equidata']['azi'])))
+
+    #if iprofnt=1, read profiles and conc from text file instead.
     for i,s in enumerate(spec_toric):
       name=str(elements[s[1]][s[0]])
       if False:
@@ -64,7 +64,7 @@ def get_spec_toric(toricnml):
       spec_toric[i]={'name':name,'A':spec_toric[i][0],'Z':spec_toric[i][1],
                      'Conc%':100*toricnml['equidata']['aconc'][i]}
     spec_toric.insert(0,{'name':'e', 'A':0, 'Z':-1 , 'Conc%': 100})
-    print('spec',len(spec_toric),toricnml['equidata']['atm'],spec_toric)
+    #print('spec',len(spec_toric),toricnml['equidata']['atm'],spec_toric)
     return spec_toric
 
 
@@ -166,8 +166,8 @@ def read_equidt(filename):
   f0002=ff.FortranRecordReader('2i4')
   f0003=ff.FortranRecordReader('a10,1i4')
   f0004=ff.FortranRecordReader('5e16.9')
-  f0006=ff.FortranRecordReader('1e16.9')
   f0005=ff.FortranRecordReader('a10')
+  f0006=ff.FortranRecordReader('1e16.9')
 
 
   def readArray(fmt,shp):
@@ -201,14 +201,16 @@ def read_equidt(filename):
       [proname]=f0005.read(next(of))
       if kdiff_idens==0:
         [nconc[isp]]=f0006.read(next(of))
-        print('reading name',proname,nconc[isp])
+        print('reading name',proname,isp,nconc[isp])
       else:
         print('if ikdiff_idens /=0 read profile')
 
       [proname]=f0005.read(next(of))
-      if kdiff_itemp==0 and isp==0:
-        print('reading name',proname)
-        #profiles[proname]=readArray(f0004,[nprodt])
+      if kdiff_itemp==0:
+        print('reading name',proname,isp)
+      else:
+        profiles[proname.strip()]=readArray(f0004,[nprodt])
+        print('reading name,size',proname,profiles[proname.strip()][0:4])
 
     profiles['iatm']=iatm    #atomic mass number
     profiles['iazi']=iazi    #atomic charge number
@@ -319,12 +321,11 @@ def write_equigs(eq,equigsfile):
 def stix_temperature(Prf,Te,ne,A,Z,Chi):
     """
     1.32e9*np.sqrt(3.14159)/(5.64e4**2*1.32e3**2)*2*np.sqrt(3.14159)*3.14159/20/9.11e-28* 1e7/1e28
-    np.float64(0.2580171035248835)
 
-    = 0.2 6* (20/ln Lambda) . . .
+    = 0.258 * (20/ln Lambda) . . .
     $$
     xi_{mathrm{mino}}^{mathrm{(Stix)}} approx{
-    frac{0.24  (20/lnLambda) , [ T_{e}(mathrm{keV}) ]^{1/2}
+    frac{0.258 (20/lnLambda) , [ T_{e}(mathrm{keV}) ]^{1/2}
              A_{mathrm{mino}} langle P_{mathrm{RF}} rangle_{mathrm{MW/m^{3}}}}
          {n_{e,20}^{2} , Z_{mathrm{mino}}^{2} , X_{mathrm{mino}}}
     }
@@ -502,9 +503,10 @@ class toric_analysis:
         print ('----------------------------------------------')
         print ('Power partitions')
         for var in ['TPwIF', 'TPwIH', 'TPwEFW', 'TPwEIBW']:
-            print("{0:} {1:>3} ".format(self.cdf_hdl.variables[var].long_name.decode('UTF-8') ,
-                            ListToFormattedString(self.cdf_hdl.variables[var].data,'{:.2f}%') ) )
-
+            print("{0:} {1:>3} ".format(self.cdf_hdl.variables[var].
+                        long_name.decode('UTF-8') ,
+                        ListToFormattedString(self.cdf_hdl.variables[var].data,'{:.2f}%') ) )
+        print ('----------------------------------------------')
         return
 
 
@@ -729,10 +731,9 @@ class toric_analysis:
         ntt=field.shape[0]
         #nelm=int(field.shape[1]*maxr)
         nelm=int(np.size(rad)*maxr)
-        print(levels)
+        if self.idebug : print(levels)
         if (np.size(levels)==1):
             nlevels=7
-#            levels=np.arange(nelm/nlevels,nelm-1,nelm/nlevels)
             levels=(np.arange(nlevels)*nelm*1./nlevels).astype(int)
         else:
             levels=(np.array(levels)*nelm).astype(int)
@@ -927,7 +928,7 @@ class toric_analysis:
         rmax=max([abs(emax),abs(emin)])*scaletop
         rmin=min([0.,emax,emin])*scalebot
         #val=arange(emin,emax,(emax-emin)/25.,'d')
-        print("2D rmax", rmax)
+        if self.idebug: print("2D rmax", rmax)
         if not rmax: rmax=1e4
         val=np.arange(-rmax*1.1,rmax*1.1,(rmax+rmax)/25.,'d')
         if (im):
@@ -1029,18 +1030,32 @@ class toric_analysis:
 
 
     ### user routines using the above, could be in a different module
-    def get_power1D( self, spec ):
+    def get_power1D( self, species ):
         "Plots power across the midplant by averaging over Z"
+        
         from scipy.interpolate import griddata
+        
+        XX=self.cdf_hdl.variables['Xplasma'][:]
+        ZZ=self.cdf_hdl.variables['Zplasma'][:]
         X1D=self.cdf_hdl.variables['Ef_abscissa'][:]
-        Z1D=np.zeros(len(X1D))
-        XX=V1E.cdf_hdl.variables['Xplasma']
-        ZZ=V1E.cdf_hdl.variables['Zplasma']
-        pwr=V1E.cdf_hdl.variables['TDPwE']
+        Z1D=np.linspace(np.min(ZZ),np.max(ZZ), len(X1D))
+        XXcart,YYcart    = np.meshgrid(X1D,Z1D)
 
-        grid_e = griddata( (XX[:,:].ravel(),ZZ[:,:].ravel()), pwr[:,:].ravel(),
-                           (X1D[None,:],Z1D[0,None]), method='nearest')
-        return X1D, pwr, slabpwr
+        pwr=self.cdf_hdl.variables['TDPwE']
+
+        grid_e = np.reshape(griddata( ( XX[:,:].ravel(),ZZ[:,:].ravel() ),
+                             pwr[:,:].ravel(),
+                           ( XXcart.ravel(), YYcart.ravel() ),
+                             method='nearest'
+                                     ), (len(X1D),len(Z1D)) )
+        slabpwr = np.sum(grid_e[:,:],axis=0)/float(len(Z1D))
+        pwr1d = griddata( ( XX[:,:].ravel(),ZZ[:,:].ravel() ),
+                             pwr[:,:].ravel(),
+                           ( X1D[None,:],(X1D*0.)[None,:] ),
+                             method='nearest'
+                          ).T
+        
+        return X1D, pwr1d #grid_e, slabpwr, pwr1d
 
     
     def powpoynt( self ):
@@ -1348,11 +1363,11 @@ def read_equigsfile(equigsfile='equigs.data'):
 
 
 def plot_equigs(equigs, ntheta=65):
-    imom=Diab.equigs['imom'] 
-    nmhd=Diab.equigs['nmhd']
-    rmc2d0 =Diab.equigs['rzmcs2d'][0:nmhd]  #center of each flux surface. first term is magnetic axis.
-    zmc2d0 =Diab.equigs['rzmcs2d'][nmhd:2*nmhd]
-    rz=Diab.equigs['rzmcs2d'][2*nmhd:].reshape( (nmhd,4,imom), order='F' )
+    imom=equigs['imom'] 
+    nmhd=equigs['nmhd']
+    rmc2d0 =equigs['rzmcs2d'][0:nmhd]  #center of each flux surface. first term is magnetic axis.
+    zmc2d0 =equigs['rzmcs2d'][nmhd:2*nmhd]
+    rz=equigs['rzmcs2d'][2*nmhd:].reshape( (nmhd,4,imom), order='F' )
 
     Raxis=rmc2d0[0]
     rminor= (np.sum(rz[:,0,:],1)+ rmc2d0) - Raxis
@@ -1397,7 +1412,7 @@ def plot_equigs(equigs, ntheta=65):
         plt.plot(rtest[i,:],ztest[i,:])
         plt.plot(rtest[-1,:],ztest[-1,:])
 
-    plt.title('Toric Eq from equigs file',equigs['file']);
+    plt.title('Toric Eq from equigs file '+equigs['file']);
 
     return
 
