@@ -386,7 +386,7 @@ def getModB(eq,rdict=False):
 
     where Fpol== R*Bphi , Bpol = |grad Psi|/R
 
-    EQDSK orinal uses R,phi, rh coordinate system
+    EQDSK original uses R,phi,Z coordinate system
     """
     import numpy as np
     from scipy import interpolate
@@ -401,7 +401,8 @@ def getModB(eq,rdict=False):
     Rv,Zv=np.meshgrid(R,Z,indexing='ij') #these are R and Z on RZ mesh, first index for Z , default indexing
     psiZR=eq.get('psizr')
 
-    spline_psi = interpolate.RectBivariateSpline(R,Z,psiZR,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
+    spline_psi = interpolate.RectBivariateSpline(R,Z,psiZR,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],
+                                                 kx=5,ky=5)
     psi_int_r=spline_psi.ev(Rv,Zv,dx=1)/fluxfactor
     psi_int_z=spline_psi.ev(Rv,Zv,dy=1)/fluxfactor
     grad_psi=np.sqrt(psi_int_z**2+psi_int_r**2)
@@ -622,10 +623,11 @@ def writeEQDSK(eq,fname):
     f.close()
 
 
-def resize(eq,nx,ny=None):
+def resize(eq,nx,ny=None,rdim=None,zdim=None):
     import copy
-    from scipy.interpolate.rbf import Rbf
-
+    from scipy.interpolate import RectBivariateSpline
+    import numpy as np
+    
     neweq=copy.deepcopy(eq)
     neweq['nW']=nx
     if not ny: ny=nx
@@ -638,27 +640,35 @@ def resize(eq,nx,ny=None):
         f = interpolate.interp1d(x, profile)
         return f(newx)
 
+    R=eq['r']; Z=eq['z']; PSIZR=eq['psizr']
+
+
     
     nW       = nx
     nH       = ny
-    rdim     = eq['rdim']
-    zdim     = eq['zdim']
+    if not rdim:  rdim = eq['rdim']
+    rleft    = eq['rleft']
+    if not zdim:  zdim = eq['zdim']
+    zmid     = eq['zmid']
     simag    = eq['simag']
     sibry    = eq['sibry']
     rStep    = rdim / ( nW - 1 )
     zStep    = zdim / ( nH - 1 )
     fStep    = -( simag - sibry ) / ( nW - 1 )
-    r        = np.arange ( nW ) * rStep + rleft
-    z        = np.arange ( nH ) * zStep + zmid - zdim / 2.0
+    rnew     = np.arange ( nW ) * rStep + rleft
+    znew     = np.arange ( nH ) * zStep + zmid #- zdim / 2.0
     fluxGrid = np.arange ( nW ) * fStep + simag
+    
+    interp_func = RectBivariateSpline(
+        R,Z,PSIZR,
+        bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
+    print('shape',nx,ny,rnew.shape,znew.shape)
+    XX,YY    = np.meshgrid(rnew,znew, indexing='ij')
 
-    rbf_fun  = Rbf(r, z, eq['psirz'], function="gaussian")
-    XX,YY    = np.meshgrid(r,z)
-
-    neweq['r']        = r
-    neweq['z']        = z
+    neweq['r']        = rnew
+    neweq['z']        = znew
     neweq['fluxGrid'] = fluxGrid
-    neweq['psizr']    = rbf_fun(XX.ravel(), YY.ravel()).reshape(XX.shape)
+    neweq['psizr']    = interp_func( XX,YY )
     neweq['fpol']     = resize1D(eq['fluxGrid'],fluxGrid,eq['fpol'])
     neweq['pres']     = resize1D(eq['fluxGrid'],fluxGrid,eq['pres'])
     neweq['ffprim']   = resize1D(eq['fluxGrid'],fluxGrid,eq['ffprim'])
