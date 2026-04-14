@@ -210,10 +210,10 @@ def mapper(eqobj,jac='straight'):
         dl=np.sqrt(df_dx**2+df_dy**2) #These two steps could be done with FFT too.
 
         #flux surface integrals here
-        c_curtor = -integrate.simps(
+        c_curtor = -integrate.simpson(
             dl*filtered_cx/c_gradpsi * ( c_pprime[c_idx] + c_ffprime[c_idx]/filtered_cx**2/mu0 ) 
             )
-        c_area = integrate.simps(
+        c_area = integrate.simpson(
             dl/c_gradpsi
             )
 
