@@ -137,13 +137,12 @@ def mapper(eqobj,jac='straight'):
 
     #Get Psi contours, careful to exclude field coils
     psixy=[]
-    for p in psi_cs.collections:
-        for pp in p.get_paths():
-            v = pp.vertices
-            x = v[:,0]
-            y = v[:,1]
-            if np.abs(np.average(y))<0.20*np.max(eq['z']): #only keep core plasma contours
-                psixy.append( (x,y) )
+      for pp in psi_cs.get_paths():
+        v = pp.vertices
+        x = v[:,0]
+        y = v[:,1]
+        if np.abs(np.average(y))<0.20*np.max(eq['z']): #only keep core plasma contours
+          psixy.append( (x,y) )
 
     #Define uniform theta mesh
     uni_theta=np.linspace(0,2.0*np.pi,ntheta,endpoint=False)
@@ -180,7 +179,7 @@ def mapper(eqobj,jac='straight'):
             cy=0.5*(np.roll(cy,-idx)+np.roll(cy,-idx+1))
 
         #filter out high freq noise, esp needed near axis
-        nmodes=max( minmodes,int(len(cx)/np.float(maxmodes) ))
+        nmodes=max( minmodes,int(len(cx)/float(maxmodes) ))
         fftx=sft.fft(cx)
         fftx[int(nmodes/2)+1:-int(nmodes/2)]=0
         filtered_cx=sft.ifft(fftx).real
@@ -223,7 +222,7 @@ def mapper(eqobj,jac='straight'):
             dtheta=dl/np.abs(c_gradpsi*filtered_cx)
         else: #jac='eqarc'   # dtheta=dl
             dtheta=dl
-        L=integrate.cumtrapz(dtheta,initial=0)/len(dtheta) 
+        L=integrate.cumulative_trapezoid(dtheta,initial=0)/len(dtheta) 
       
         #now put each on same theta mesh, Jacobian selection
         this_theta=L/np.max(L)*2.0*np.pi
