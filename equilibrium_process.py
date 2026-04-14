@@ -218,10 +218,10 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=False, width=9,
 #                plt.plot ( rlim, zlim, 'g', linewidth = 4 )
 #            plt.show ()
 #        else:
-         ax.contour (Rv, Zv, psizr, N )
-         ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
-         if (dolimiter):
-             ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
+        ax.contour (Rv, Zv, psizr, N )
+        ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
+        if (dolimiter):
+           ax.plot ( rlim, zlim, 'g', linewidth = 4 ) 
 
     #checks
     # rmaxis =/ rcentr
