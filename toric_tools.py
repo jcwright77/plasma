@@ -2,10 +2,11 @@
 #upgrading to scipy version 0.100dev , changing interface
 import numpy as np
 import numpy.fft as ft
-import scipy.io.netcdf as nc
+from scipy.io import netcdf_file
 import matplotlib.pyplot as plt
 import os
 from matplotlib import ticker, cm
+import fortranformat as ff
 import f90nml
 
 #other deps below
@@ -102,7 +103,7 @@ def write_profnt(fname,equidt):
         nprodt=equidt['nprodt']
         kdiff_itemp=equidt['kdiff_itemp']
         kdiff_idens=equidt['kdiff_idens']
-        variant=equidt['variant']
+        variantid=equidt['variant']
         ion_temp=equidt['ion_temp']
         of.write( f0001.write([variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp]) )
         if equidt['variant']=='Rfxqlo_Pro':
@@ -118,8 +119,8 @@ def write_profnt(fname,equidt):
             of.write( f0004.write( equidt[profile] ) )
 
              
-            mainsp=1
-            namelist['equidata']['mainsp']=mainsp
+            #mainsp=1
+            #namelist['equidata']['mainsp']=mainsp
             kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
             kdiff_itemp=equidt['kdiff_itemp'] #0 #one ion temp
             of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.
@@ -149,18 +150,17 @@ def write_profnt(fname,equidt):
                     of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
                     of.write(print_vector(5,'%16.9e',equidt['ti_provv'][:,isp]))
 
-                    
-def readArray(fmt,shp,idebug=False):
+
+def readArray(of,fmt,shp,nperline=5):
     vals=[]
     if len(shp)==1: N=shp[0]
     if len(shp)==2: N=shp[0]*shp[1]
-    nlines = int(N/5)
-    if (N%5)!=0: nlines+=1
+    nlines = int(N/nperpline)
+    if (N%nperpline)!=0: nlines+=1
     for i in range( nlines ):
         vals.extend(fmt.read(next(of)))
     return np.reshape(np.array(vals[0:N]),shp)
                     
-
                     
 def read_equidt(filename,idebug=False):
     import fortranformat as ff
@@ -174,72 +174,73 @@ def read_equidt(filename,idebug=False):
     f0005=ff.FortranRecordReader('a32')
     f0006=ff.FortranRecordReader('1e16.9')
 
+
     with open(filename,'r') as of:
-      [variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp]=f0001.read(next(of))
-      if idebug: print('variantid',variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp)
-      if variantid=='Rfxqlo_Pro':
-        #  Dmc -- define flag to indicate TRANSP format variant
-          if idebug: print(' Detected: TRANSP "Rfxqlo_Pro" file format variant!')
-          kdiff_itemp = 1
-          kdiff_idens = 1
-          rfxqlo_pro_variant = True
-      else:
-          rfxqlo_pro_variant = False
+        [variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp]=f0001.read(next(of))
+        if idebug: print('variantid',variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp)
+        if variantid=='Rfxqlo_Pro':
+            #  Dmc -- define flag to indicate TRANSP format variant
+            if idebug: print(' Detected: TRANSP "Rfxqlo_Pro" file format variant!')
+            kdiff_itemp = 1
+            kdiff_idens = 1
+            rfxqlo_pro_variant = True
+        else:
+            rfxqlo_pro_variant = False
 
-      if mainsp<=0 or mainsp>nspec:
-          mainsp = 1
+        if mainsp<=0 or mainsp>nspec:
+            mainsp = 1
 
-      if kdiff_itemp==0:
-        nsptmp=1
-      else:
-        nsptmp=nspec
+        if kdiff_itemp==0:
+            nsptmp=1
+        else:
+            nsptmp=nspec
 
-    iatm=np.zeros(nspec, dtype=int)
-    iazi=np.zeros(nspec, dtype=int)
-    aconc=np.zeros(nspec, dtype=float)    
-    ion_temp=np.zeros([nprodt,nspec], dtype=float)
-    ion_dens=np.zeros([nprodt,nspec], dtype=float)
+        iatm=np.zeros(nspec, dtype=int)
+        iazi=np.zeros(nspec, dtype=int)
+        aconc=np.zeros(nspec, dtype=float)    
+        ion_temp=np.zeros([nprodt,nspec], dtype=float)
+        ion_dens=np.zeros([nprodt,nspec], dtype=float)
 
-    for isp in range(nspec):
-        [iatm[isp],iazi[isp]] = f0002.read(next(of))
-        #print('spec',int(iatm[isp]),int(iazi[isp]) )
-
-    for profile in keys: #reading electron profiles
-        [proname]=f0005.read(next(of))
-        profiles[profile]=readArray(f0004,[nprodt])
-        if idebug: print('reading name,size',proname,profiles[proname.strip()][0:4])
-
-    if rfxqlo_pro_variant:  #Transp variant
         for isp in range(nspec):
-            if isp==mainsp: continue
-            [proname]=f0005.read(next(of))
-            #print('reading ', proname)
-            ion_dens[:,isp]=readArray(f0004,[nprodt])
-            
-        for isp in range(nspec):
-            [proname]=f0005.read(next(of))
-            if idebug: print('reading ', proname)
-            ion_temp[:,isp]=readArray(f0004,[nprodt])
+            [iatm[isp],iazi[isp]] = f0002.read(next(of))
+            #print('spec',int(iatm[isp]),int(iazi[isp]) )
 
-    else:
-        for isp in range(nspec): # main TORIC convention
-        
-            if kdiff_idens != 0: # Different profiles for different species
+        for profile in keys: #reading electron profiles
+            [proname]=f0005.read(next(of))
+            profiles[profile]=readArray(of,f0004,[nprodt])
+            if idebug: print('reading name,size',proname,profiles[proname.strip()][0:4])
+
+        if rfxqlo_pro_variant:  #Transp variant
+            for isp in range(nspec):
+                if isp==mainsp: continue
                 [proname]=f0005.read(next(of))
-                ion_dens[:,isp]=readArray(f0004,[nprodt])
+                #print('reading ', proname)
+                ion_dens[:,isp]=readArray(of,f0004,[nprodt])
+            
+            for isp in range(nspec):
+                [proname]=f0005.read(next(of))
+                if idebug: print('reading ', proname)
+                ion_temp[:,isp]=readArray(of,f0004,[nprodt])
+
+        else:
+            for isp in range(nspec): # main TORIC convention
+        
+                if kdiff_idens != 0: # Different profiles for different species
+                    [proname]=f0005.read(next(of))
+                    ion_dens[:,isp]=readArray(of,f0004,[nprodt])
 
                 if kdiff_idens < 0:
-                    ion_dens[:,isp] *= ne
+                    ion_dens[:,isp] *= profiles['ne']
                 
-            else: #scalar concentrations used
-                [proname]=f0005.read(next(of))
-                [aconc[isp]]=f0006.read(next(of))
-                if idebug: print('reading name',proname,isp,aconc[isp])
+                if kdiff_idens == 0: #scalar concentrations used
+                    [proname]=f0005.read(next(of))
+                    [aconc[isp]]=f0006.read(next(of))
+                    if idebug: print('reading name',proname,isp,aconc[isp])
 
-            if isp <= nsptmp:
-                [proname]=f0005.read(next(of))
-                if idebug: print('reading ', proname)            
-                ion_temp[:,isp]=readArray(f0004,[nprodt])
+                if isp < nsptmp:
+                    [proname]=f0005.read(next(of))
+                    if idebug: print('reading ', proname)            
+                    ion_temp[:,isp]=readArray(of,f0004,[nprodt])
     
 
     profiles['iatm'] =iatm    #atomic mass number
@@ -268,20 +269,20 @@ def read_equidt(filename,idebug=False):
 
 
 def write_equigs(eq,equigsfile):
-  """ eg format
-  Major radius (central)
+    """ eg format
+    Major radius (central)
     0.674548094E+00
-  Major radius (axis)
+    Major radius (axis)
     0.685074449E+00
-  Magnetic field at major radius
+    Magnetic field at major radius
     0.536006546E+01
-  Total toroidal current
+    Total toroidal current
     0.685094066E+00
-  Number of poloidal modes
+    Number of poloidal modes
     9
-  Number of radial mesh points
+    Number of radial mesh points
     165
-  Radial mesh
+    Radial mesh
 
      write(ilun,'(A)')  'Fourier equilibrium coefficients'
      write(ilun,'(4E18.9)') (zrc(0,i),i=0,inx)
@@ -293,152 +294,152 @@ def write_equigs(eq,equigsfile):
         write(ilun,'(4E18.9)') (zzc(m,i),i=0,inx)
      enddo
 
-  """
-  with open(equigsfile, "w") as file:
-      torlheq_mmodes=20
-      torlheq_psimodes=eq['xmap'].shape[0]
-      psimap=eq['psipolmap']  #chosen uniform mesh
-      equigs={}
+    """
+    equigs={}
+    with open(equigsfile, "w") as file:
+        torlheq_mmodes=20
+        torlheq_psimodes=eq['xmap'].shape[0]
+        psimap=eq['psipolmap']  #chosen uniform mesh
 
-      file.write(' Major radius (central)(m) [generated by plasma.equigs.py]\n')
-      file.write(f"{eq['rcentr']:18.9E}\n")
-      equigs["rtorm"] =eq['rcentr']
+        file.write(' Major radius (central)(m) [generated by plasma.equigs.py]\n')
+        file.write(f"{eq['rcentr']:18.9E}\n")
+        equigs["rtorm"] =eq['rcentr']
 
-      file.write(' Major radius (axis)(m)\n')
-      file.write(f"{eq['rmaxis']:18.9E}\n")
-      equigs["rmaxis"] =eq['rmaxis']
+        file.write(' Major radius (axis)(m)\n')
+        file.write(f"{eq['rmaxis']:18.9E}\n")
+        equigs["rmaxis"] =eq['rmaxis']
 
-      file.write(' Magnetic field at major radius (m)\n')
-      file.write(f"{eq['bcentr']:18.9E}\n")
-      equigs["bcentr"] =eq['bcentr']
+        file.write(' Magnetic field at major radius (m)\n')
+        file.write(f"{eq['bcentr']:18.9E}\n")
+        equigs["bcentr"] =eq['bcentr']
 
-      file.write(' Total toroidal current (kA)\n')
-      equigs["torcur"] =eq['current']/1000.
-      file.write(f"{equigs['torcur']:18.9E}\n") #eqdsk is in Amps, torlh in kAmps
+        file.write(' Total toroidal current (kA)\n')
+        equigs["torcur"] =eq['current']/1000.
+        file.write(f"{equigs['torcur']:18.9E}\n") #eqdsk is in Amps, torlh in kAmps
 
-      file.write(' Number of poloidal modes\n')
-      equigs["imom"] = torlheq_mmodes
-      file.write(f"{torlheq_mmodes:5}\n")
+        file.write(' Number of poloidal modes\n')
+        equigs["imom"] = torlheq_mmodes
+        file.write(f"{torlheq_mmodes:5}\n")
 
-      file.write(' Number of radial mesh points\n')
-      equigs["nmhd"] = torlheq_psimodes
-      file.write(f"{torlheq_psimodes:5}\n")
+        file.write(' Number of radial mesh points\n')
+        equigs["nmhd"] = torlheq_psimodes
+        file.write(f"{torlheq_psimodes:5}\n")
 
-      file.write(' Radial mesh\n')
-      rhopol=eq['rhopolmap']  #sqrt FluxGrid
-      equigs["srad"] = rhopol
-      formattedwrite(file,rhopol)
+        file.write(' Radial mesh\n')
+        rhopol=eq['rhopolmap']  #sqrt FluxGrid
+        equigs["srad"] = rhopol
+        formattedwrite(file,rhopol)
 
-      file.write(' Fourier equilibrium coefficients\n')
-      equigs["rzmcs2d"]=eq['rzmc2d']  #these are gotten from mapper.py and ffts
-      rmc2d,rms2d,zmc2d,zms2d=eq['rzmc2d']
-      formattedwrite(file,rmc2d[:,0]) #dc modes
-      formattedwrite(file,zmc2d[:,0])
-      for i in range(1,rmc2d.shape[1]):
-        formattedwrite(file,rmc2d[:,i])
-        formattedwrite(file,zms2d[:,i])
-        formattedwrite(file,rms2d[:,i])
-        formattedwrite(file,zmc2d[:,i])
+        file.write(' Fourier equilibrium coefficients\n')
+        equigs["rzmcs2d"]=eq['rzmc2d']  #these are gotten from mapper.py and ffts
+        rmc2d,rms2d,zmc2d,zms2d=eq['rzmc2d']
+        formattedwrite(file,rmc2d[:,0]) #dc modes
+        formattedwrite(file,zmc2d[:,0])
+        for i in range(1,rmc2d.shape[1]):
+            formattedwrite(file,rmc2d[:,i])
+            formattedwrite(file,zms2d[:,i])
+            formattedwrite(file,rms2d[:,i])
+            formattedwrite(file,zmc2d[:,i])
 
-      file.write(' Safety factor\n')
-      qmap=np.interp(eq['psipolmap'],eq['fluxGrid'],eq['qpsi'])
-      equigs["qqf"] = qmap
-      formattedwrite(file,qmap)
+        file.write(' Safety factor\n')
+        qmap=np.interp(eq['psipolmap'],eq['fluxGrid'],eq['qpsi'])
+        equigs["qqf"] = qmap
+        formattedwrite(file,qmap)
 
-      file.write(' Current profile [kA]\n')
-      equigs["Icurr"]=eq['Ipsimap']/1000.0
-      formattedwrite(file,equigs["Icurr"])
+        file.write(' Current profile [kA]\n')
+        equigs["Icurr"]=eq['Ipsimap']/1000.0
+        formattedwrite(file,equigs["Icurr"])
 
-      file.write(' Covariant B_phi, R*B_phi (m*T)\n')
-      gmap=np.interp(eq['psipolmap'],eq['fluxGrid'],eq['fpol'])
-      equigs["gcov"] = gmap
-      formattedwrite(file,gmap)
+        file.write(' Covariant B_phi, R*B_phi (m*T)\n')
+        gmap=np.interp(eq['psipolmap'],eq['fluxGrid'],eq['fpol'])
+        equigs["gcov"] = gmap
+        formattedwrite(file,gmap)
 
-      file.write(' Rho toroidal\n')
-      equigs["rhotor"]=eq['rhotormap']  #NOT DEFINED YET, found from psitor=\int q dpsipol
-      formattedwrite(file,eq['rhotormap'])
+        file.write(' Rho toroidal\n')
+        equigs["rhotor"]=eq['rhotormap']  #NOT DEFINED YET, found from psitor=\int q dpsipol
+        formattedwrite(file,eq['rhotormap'])
 
-      file.write(' Fraction Psi poloidal at last surface\n')
-      equigs["lastpsi"]=eq['lastpsi']
-      file.write(f"{equigs['lastpsi']:18.9E}\n")
+        file.write(' Fraction Psi poloidal at last surface\n')
+        equigs["lastpsi"]=eq['lastpsi']
+        file.write(f"{equigs['lastpsi']:18.9E}\n")
 
-  return equigs
+    return equigs
 
 
 def read_equigsfile(equigsfile='equigs.data'):
-   "Read the equilibrium file created by toric in toricmode='equil',isol=0."
+    "Read the equilibrium file created by toric in toricmode='equil',isol=0."
 
-   def __get_varname(f, debug=False):
-       "Reads next line from file f and returns it, optionally printing it."
-       varname=f.readline()
-       if debug:
-           print (f.name,varname)
-   return varname
+    def __get_varname(f, debug=False):
+        "Reads next line from file f and returns it, optionally printing it."
+        varname=f.readline()
+        if debug:
+            print (f.name,varname)
+        return varname
 
-   equigs_hdl=open(equigsfile,'r')
-   equigs = {}
-   equigs['file']=equigsfile
+    equigs_hdl=open(equigsfile,'r')
+    equigs = {}
+    equigs['file']=equigsfile
     
-   varname = __get_varname(equigs_hdl)
-   equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",
+    varname = __get_varname(equigs_hdl)
+    equigs["rtorm"] = np.fromfile(equigs_hdl,sep=" ",
                                   count=1,dtype=float)[0]
 
-   varname = __get_varname(equigs_hdl)
-   equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",
+    varname = __get_varname(equigs_hdl)
+    equigs["raxis"]= np.fromfile(equigs_hdl,sep=" ",
                                  count=1,dtype=float)[0]
 
-   varname = __get_varname(equigs_hdl)
-   equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",
+    varname = __get_varname(equigs_hdl)
+    equigs["bzero"] = np.fromfile(equigs_hdl,sep=" ",
                                   count=1,dtype=float)[0]
 
-   varname = __get_varname(equigs_hdl)
-   equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",
+    varname = __get_varname(equigs_hdl)
+    equigs["torcur"]= np.fromfile(equigs_hdl,sep=" ",
                                   count=1,dtype=float)[0]
 
-   varname = __get_varname(equigs_hdl)
-   equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",
+    varname = __get_varname(equigs_hdl)
+    equigs["imom"] = np.fromfile(equigs_hdl,sep=" ",
                                  count=1,dtype=int)[0]
-   imom = equigs["imom"]
+    imom = equigs["imom"]
 
-   varname = __get_varname(equigs_hdl)
-   equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",
+    varname = __get_varname(equigs_hdl)
+    equigs["nmhd"] = np.fromfile(equigs_hdl,sep=" ",
                                  count=1,dtype=int)[0]
-   nmhd = equigs["nmhd"]
+    nmhd = equigs["nmhd"]
 
-   varname = __get_varname(equigs_hdl)
-   equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",
+    varname = __get_varname(equigs_hdl)
+    equigs["srad"] = np.fromfile(equigs_hdl,sep=" ",
                                  count=nmhd,dtype=float)
 
-   #this needs to be reshaped or remapped into the R,Z sin cos
-   #arrays toric uses
-   varname = __get_varname(equigs_hdl)
-   equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
-                                   count=2*nmhd+4*nmhd*imom,dtype=float)
+    #this needs to be reshaped or remapped into the R,Z sin cos
+    #arrays toric uses
+    varname = __get_varname(equigs_hdl)
+    equigs["rzmcs2d"] = np.fromfile(equigs_hdl,sep=" ",
+                                    count=2*nmhd+4*nmhd*imom,dtype=float)
 
-   varname = __get_varname(equigs_hdl)
-   equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",
-                               count=nmhd,dtype=float)
+    varname = __get_varname(equigs_hdl)
+    equigs["qqf"] = np.fromfile(equigs_hdl,sep=" ",
+                                count=nmhd,dtype=float)
 
-   #logic checking for "END"
-   varname = __get_varname(equigs_hdl)
-   equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",
-                                 count=nmhd,dtype=float)
-    
-   varname = __get_varname(equigs_hdl)
-   equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",
-                               count=nmhd,dtype=float)
-
-   varname = __get_varname(equigs_hdl)
-   equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",
+    #logic checking for "END"
+    varname = __get_varname(equigs_hdl)
+    equigs["jcurr"] = np.fromfile(equigs_hdl,sep=" ",
                                   count=nmhd,dtype=float)
+    
+    varname = __get_varname(equigs_hdl)
+    equigs["gcov"]= np.fromfile(equigs_hdl,sep=" ",
+                                count=nmhd,dtype=float)
 
-   varname = __get_varname(equigs_hdl)
-   equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",
-                                   count=1,dtype=float)[0]
+    varname = __get_varname(equigs_hdl)
+    equigs["rhotor"] = np.fromfile(equigs_hdl,sep=" ",
+                                   count=nmhd,dtype=float)
+
+    varname = __get_varname(equigs_hdl)
+    equigs["lastpsi"] = np.fromfile(equigs_hdl,sep=" ",
+                                    count=1,dtype=float)[0]
    
-   equigs_hdl.close()
-
-   return equigs
+    equigs_hdl.close()
+    
+    return equigs
 
 
 def plot_equigs(equigs, ntheta=65):
@@ -497,6 +498,7 @@ def plot_equigs(equigs, ntheta=65):
 
 
 def XZ_from_equigs(equigs,dpsi=0,dtheta=0):
+    "Not fully implemented, do not use"
     imom=equigs['imom'] 
     nmhd=equigs['nmhd']
     rmc2d0 =equigs['rzmcs2d'][0:nmhd]  #center of each flux surface. first term is magnetic axis.
@@ -528,8 +530,7 @@ def plot_diag(diag, eq0):
     
     
 def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savefig=False):
-    "Parse the ASCII formatted diagnostic output for the equilibrium mesh"
-    import fortranformat as ff
+    "Parse the ASCII formatted diagnostic output for the equilibrium mesh. Not fully implemented."
 
     diag={}
     f0001=ff.FortranRecordReader('5i5')
@@ -543,21 +544,6 @@ def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savef
     f0008=ff.FortranRecordReader('i5')
     f0009=ff.FortranRecordReader('6e13.4')
     
-    def readArray(fmt,shp):
-      nperline=6
-      vals=[]
-      if len(shp)==1: N=shp[0]
-      if len(shp)==2: N=shp[0]*shp[1]
-      nlines = int(N/nperline)
-      if (N%nperline)!=0: nlines+=1
-      for i in range( nlines ):
-          vals.extend(fmt.read(next(of)))
-      return np.reshape(np.array(vals[0:N]),shp)
-
-    def getpsiarray(of,fmt=f009,nx=npsi):
-        [plotName]=f0005.read(next(of))
-        if idebug : print('plotName',plotName)
-        return readArray(fmt,[nx])
 
     with open(diagfile,'r') as of:
         [iqtest]=f0008.read(next(of))
@@ -570,9 +556,15 @@ def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savef
         rawcf = np.zeros(npsi, dtype=float)
         intcf = np.zeros(ipsi, dtype=float)
 
+        
+        def getpsiarray(of,fmt=f0009,nx=npsi):
+            [plotName]=f0005.read(next(of))
+            if idebug : print('plotName',plotName)
+            return readArray(of,fmt,[nx],6)
 
-        srad=getpsiarray(of,fmt=f007)
-        irad=getpsiarray(of,fmt=f007)
+        
+        srad=getpsiarray(of,fmt=f0007)
+        irad=getpsiarray(of,fmt=f0007)
 #        [plotName]=f0005.read(next(of))
 #        if idebug : print('plotName',plotName,npsi)
 #        srad=readArray(f0007,[npsi])
@@ -585,8 +577,8 @@ def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savef
             print('m',m)
             [plotName]=f0005.read(next(of))
             if idebug : print('plotName',plotName)
-            rawcf=readArray(f0007,[npsi])
-            intcf=readArray(f0007,[ipsi])
+            rawcf=readArray(of,f0007,[npsi],6)
+            intcf=readArray(of,f0007,[ipsi],6)
 
         qq=getpsiarray(of)
         aj=getpsiarray(of)
@@ -596,7 +588,7 @@ def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savef
 
         #Magnetic Field Configuration 
         [plotName]=f0005.read(next(of))                      
-        if int(plotname)==0:
+        if int(plotName)==0:
             print('idlout set to 0 in torica.inp. Stopping')
             return diag
 
@@ -630,40 +622,40 @@ def read_diag2(diagfile='toric.asc'):
     sploty=np.fromstring(''.join(toric_diag[lgrid+3+nlines:lgrid+3+2*nlines]),
                          sep=' ')
 
-    next=lgrid+3+2*nlines
-    title=toric_diag[next]
+    idx=lgrid+3+2*nlines
+    title=toric_diag[idx]
     print("title",title,nlines)
-    next+=1
+    idx+=1
 
     pgridx=[]
     pgridy=[]
     pgridx.append(splotx)
     pgridy.append(sploty)
     for i in range(ncopsi+1):
-        pgridx.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+        pgridx.append(np.fromstring(''.join(toric_diag[idx:idx+nlines]),
                                     sep=' '))
-        next+=nlines
-        pgridy.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+        idx+=nlines
+        pgridy.append(np.fromstring(''.join(toric_diag[idx:idx+nlines]),
                                     sep=' '))
-        next+=nlines
+        idx+=nlines
 
-    title=toric_diag[next]
-    next+=1
+    title=toric_diag[idx]
+    idx+=1
 
-    ntt,lpl=np.fromstring(toric_diag[next],dtype=int,sep=' ')
-    next+=1
+    ntt,lpl=np.fromstring(toric_diag[idx],dtype=int,sep=' ')
+    idx+=1
     tgridx=[]
     tgridy=[]
     nlines=int(np.ceil(lpl/6))
     for i in range(ntt):
-        tgridx.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+        tgridx.append(np.fromstring(''.join(toric_diag[idx:idx+nlines]),
                                     sep=' '))
-        next+=nlines
-        tgridy.append(np.fromstring(''.join(toric_diag[next:next+nlines]),
+        idx+=nlines
+        tgridy.append(np.fromstring(''.join(toric_diag[idx:idx+nlines]),
                                     sep=' '))
-        next+=nlines
+        idx+=nlines
 
-    #print ("Next group is ",toric_diag[next])
+    #print ("Idx group is ",toric_diag[idx])
     diag={'pgridx':pgridx,'pgridy':pgridy,'tgridx':tgridx,'tgridy':tgridy,
           'igsmhd':igsmhd,'iqtest':iqtest,'ncopsi':ncopsi,'jptheta':jptheta,
           'ntt':ntt,'lpl':lpl}
@@ -724,12 +716,10 @@ class toric_analysis:
         import socket
         from time import gmtime
 
-        __version__=1.0
-
         self.toric_name=toric_name
         self.toric_data=toric_data
         self.mode = mode
-        self.__version__ = __version__
+        self.__version__ = 1.1
         self.idebug = idebug
 
         self.mylw=1.0
@@ -759,28 +749,30 @@ class toric_analysis:
 
 ##Open the toric netcdf file
         try:
-            self.cdf_hdl = nc.netcdf_file(path+self.toric_name,mmap=False )
+            self.cdf_hdl = netcdf_file(path+self.toric_name,mmap=False )
             dvs = self.cdf_hdl.variables
         except IOError:
             print ('CRITICAL: ',self.toric_name,' not found.')
-            self.cdf_hdl = -1
-            dvs = None
+            self.cdf_hdl = None
+            return 
 
         try:
-            self.qlde_hdl = nc.netcdf_file(path+"toric_qlde.cdf",mmap=False)
+            self.qlde_hdl = netcdf_file(path+"toric_qlde.cdf",mmap=False)
         except IOError:
             print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
-            self.qlde_hdl = -1
+            self.qlde_hdl = None
 
         try:
-            self.data_hdl = nc.netcdf_file(path+self.toric_data,mmap=False )
+            self.data_hdl = netcdf_file(path+self.toric_data,mmap=False )
         except IOError:
             print ('CRITICAL: ',self.toric_data,' not found.')
             self.data_hdl = None
 
         xx = dvs[self.namemap['xplasma']].data
         nant=1
-        self.nspec=self.nml['toricainp'].get('nspec')
+        self.nspec=self.nml['equidata'].get('nspec')
+        if not self.nspec: print('Warning nspec not found in namelist')
+
         self.spec=self.get_spec()
         if self.data_hdl:
             dv=self.data_hdl.variables
@@ -834,21 +826,21 @@ class toric_analysis:
     def info( self ):
         "Prints a list of the contents of present TORIC3D output files"
 
-        if (self.cdf_hdl != -1):
+        if self.cdf_hdl:
             for hdl in [self.cdf_hdl]:
                 print ('The toric file, ',self.toric_name,', contains:')
                 print ('----------------------------------------------')
                 print ("The global attributes: ",self.cdf_hdl.dimensions.keys())
                 print ("File contains the variables: ", self.cdf_hdl.variables.keys())
 
-        if (self.qlde_hdl != -1):
+        if self.qlde_hdl:
             for hdl in [self.qlde_hdl]:
                 print ('The toric file, ',"toric_qlde.cdf",', contains:')
                 print ('----------------------------------------------')
                 print ("The global attributes: ",self.qlde_hdl.dimensions.keys()  )
                 print ("File contains the variables: ", self.qlde_hdl.variables.keys())
 
-        if (self.data_hdl):
+        if self.data_hdl:
             for hdl in [self.data_hdl]:
                 print ('The toric file, ',self.toric_data,', contains:')
                 print ('----------------------------------------------')
@@ -898,7 +890,7 @@ class toric_analysis:
                   
     def plotb0( self, ir=45, db=0, eps=0 ):
         """Contour plot of bounce averaged Dql coefficient, dB0 """
-        if (self.qlde_hdl == -1):
+        if not self.qlde_hdl:
             print ("qlde File not found")
             return
         if (eps>0):
@@ -1407,8 +1399,8 @@ class toric_analysis:
             rmin=lee2d.ravel()[lee2d[:,:lastpsi].argmin()]+lscalebot
 
             if rmin==rmax:
-                print('Error rmin=rmax',rmin,rmax,component,species)
-                rmax=rmin+1
+                print('Warning rmin=rmax, no power,skipping',rmin,rmax,component,species)
+                return
             val=np.arange(rmin,rmax,(rmax-rmin)/(logl*1.0),'d')
             CS=plt.contourf(xxx[:,:lastpsi],yyy[:,:lastpsi],
                             lee2d[:,:lastpsi],val,cmap=cmap) #cm.jet)
@@ -1467,10 +1459,12 @@ class toric_analysis:
                                   'green', 'blue', 'grey', 'gold', 'darkgreen'],
                   marker=['o', '+', 'x', 'o', 'v', '^', '<', '>', '.'])
 
-        line1,=self.psiplot(self.namemap['pelec'])
+        line1a,=self.psiplot(self.namemap['pelec'])
         #can use setp(lines, ) to change plot properties.
-        plt.setp(line1,label='electrons')
-
+        plt.setp(line1a, label='electrons')
+        line1b,=self.psiplot('PwEIBW')
+        plt.setp(line1b, label=r'$P_{ibw}$')
+        lines=[line1a,line1b]
 
         #add first two species if ICRF, add logic to plot if power percent
         #is larger than 0.5%
@@ -1480,7 +1474,6 @@ class toric_analysis:
             spec=self.get_spec()
             tpowerF=self.cdf_hdl.variables['TPwIF']
             tpowerH=self.cdf_hdl.variables['TPwIH']
-            lines=[line1]
 
             for ispec in range(nspec):
                 if self.idebug:
@@ -1510,10 +1503,10 @@ class toric_analysis:
                 print('lines',ll, type(ll) ) #.get_label() )
 
         #set axis floor at 0
-        #plt.gca().set_ylim(0)
         ax1.set_ylim(0)
         ax2.set_ylim(0)
         ax1.set_ylabel('Power',color='b')
+        
         #change color and symbol
         plt.setp(line20,color='r', label='<ExB>')
         ax2.set_ylabel('Poynting',color='r')
@@ -1523,7 +1516,7 @@ class toric_analysis:
         plt.legend( handles=lines, loc='center right', 
                      ncol=1, fancybox=True, shadow=True)
 
-        plt.xlim( [0,1] )
+        plt.xlim( 0, 1 )
         plt.tight_layout()
         plt.draw()
         return
@@ -1723,10 +1716,11 @@ if __name__ == '__main__':
 #From ips-wrappers
 class toric_file():
     def __init__(self,toric_name='fort.9',lean=True):
+        from scipy.io import netcdf_file
         #open cql3d netcdf
         #------------------------------------------------------------------------
         try:
-            toric_nc = spio.netcdf_file(toric_name,'r')
+            toric_nc = netcdf_file(toric_name,'r')
         except:
             print('toric_file initialization failed: could not find ncdf: ',
                   toric_name)
@@ -1838,4 +1832,4 @@ class toric_file():
         self.fw_power_elec = np.copy(toric_nc.variables['fw_power_elec'].data)
         self.ib_power_elec = np.copy(toric_nc.variables['ib_power_elec'].data)
         self.ICfund_power_ions = np.copy(toric_nc.variables['ICfund_power_ions'].data)
-        self.ICharm_power_ions = np.copy(toric_nc.variables['ICharm_pwer_ions'].data)
+        self.ICharm_power_ions = np.copy(toric_nc.variables['ICharm_power_ions'].data)
