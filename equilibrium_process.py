@@ -184,22 +184,11 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=False, width=9,
     if (dointerior):
         for i in np.arange ( nW ) :
             for j in np.arange ( nH ) :
-                if lcf.contains_point( (r[i],z[i]) ):
+                if lcf.contains_point( (r[i],z[j]) ):
                     iiInsideA[i,j] = 1
-                #q1  = np.size ( np.where ( ( r[i] - rbbbs > 0 ) & ( z[j] - zbbbs > 0 ) ) )
-                #q2  = np.size ( np.where ( ( r[i] - rbbbs > 0 ) & ( z[j] - zbbbs <= 0 ) ) )
-                #q3  = np.size ( np.where ( ( r[i] - rbbbs <= 0 ) & ( z[j] - zbbbs > 0 ) ) )
-                #q4  = np.size ( np.where ( ( r[i] - rbbbs <= 0 ) & ( z[j] - zbbbs <= 0 ) ) )
-
-                #if ( q1 > 0 ) & ( q2 > 0 ) & ( q3 > 0 ) & ( q4 > 0 ) :
-                #    iiInsideA[i,j]  = 1
 
         iiInside    = np.where ( iiInsideA > 0 )
         iiOutside   = np.where ( iiInsideA == 0 )
-
-#    print nW, nH, nbbbs, limitr
-#    print rdim, zdim, rcentr, rleft, zmid
-#    print rmaxis, zmaxis, simag, sibry, bcentr
 
 #   Plot output
     fig='No figure'
@@ -212,12 +201,6 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=False, width=9,
             ax = fig.add_subplot(111)
             ax.set_aspect('equal')
 
-#            plt.contour ( Rv, Zv, psizr, N )
-#            plt.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
-#            if (dolimiter):
-#                plt.plot ( rlim, zlim, 'g', linewidth = 4 )
-#            plt.show ()
-#        else:
         ax.contour (Rv, Zv, psizr, N )
         ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
         if (dolimiter):
@@ -261,34 +244,34 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
         return fmt.read(line)
 
 
-    def readArray(fmt,shp):
+    def readArray(fh,fmt,shp):
         vals=[]
         if len(shp)==1: N=shp[0]
         if len(shp)==2: N=shp[0]*shp[1]
         nlines = int(N/5)
         if (N%5)!=0: nlines+=1
         for i in range( nlines ):
-            vals.extend(fmt.read(next(f)))
+            vals.extend(fmt.read(next(fh)))
         return np.reshape(np.array(vals[0:N]),shp)
 
 
-    with open(filename, "r") as f:
-        [casestr, idum, nw, nh]            =f2000.read(next(f))
-        [rdim,zdim,rcentr,rleft,zmid]      =f2020.read(next(f))
-        [rmaxis,zmaxis,simag,sibry,bcentr] =f2020.read(next(f))
-        [current,simag,xdum,rmaxis,xdum]   =f2020.read(next(f))
-        [zmaxis,xdum,sibry,xdum,xdum]      =f2020.read(next(f))
-        fpol    =readArray(f2020,[nw])
-        pres    =readArray(f2020,[nw])
-        ffprim  =readArray(f2020,[nw])
-        pprime  =readArray(f2020,[nw])
-        psizr   =readArray(f2020,[nh,nw]).T
+    with open(filename, "r") as fh:
+        [casestr, idum, nw, nh]            = f2000.read(next(fh))
+        [rdim,zdim,rcentr,rleft,zmid]      = f2020.read(next(fhh))
+        [rmaxis,zmaxis,simag,sibry,bcentr] = f2020.read(next(fh))
+        [current,simag,xdum,rmaxis,xdum]   = f2020.read(next(fh))
+        [zmaxis,xdum,sibry,xdum,xdum]      = f2020.read(next(fh))
+        fpol    = readArray(fh,f2020,[nw])
+        pres    = readArray(fh,f2020,[nw])
+        ffprim  = readArray(fh,f2020,[nw])
+        pprime  = readArray(fh,f2020,[nw])
+        psizr   = readArray(fh,f2020,[nh,nw]).T
         # ff follows fortran indexing convention, so transpose to be consistent with usage
-        qpsi    =readArray(f2020,[nw])
+        qpsi    = readArray(fh,f2020,[nw])
         #check if bb present
-        [nbbbs,limitr]=f2022.read(next(f))
-        RZbnd   =readArray(f2020,[nbbbs*2]) #Rbnd,Zbnd)
-        RZlim   =readArray(f2020,[limitr*2]) #Rlim,Zlim)
+        [nbbbs,limitr] = f2022.read(next(fh))
+        RZbnd   = readArray(fh,f2020,[nbbbs*2]) #Rbnd,Zbnd)
+        RZlim   = readArray(fh,f2020,[limitr*2]) #Rlim,Zlim)
 
     if dodebug:
         print("Data string header:", rdim,zdim,rcentr,rleft,zmid )
@@ -462,7 +445,7 @@ def getLCF(eq):
     R=eq.get('r')
     Z=eq.get('z')
     psiRZ=np.transpose(eq.get('psizr'))
-    CSlcf=p.contour(R,Z,psiRZ,levels=[eq['sibry']-.01])
+    CSlcf=plt.contour(R,Z,psiRZ,levels=[eq['sibry']-.01])
     cntr=(eq['rmaxis'],eq['zmid'])
     lcf=(0,0)
     for p in CSlcf.collections[0].get_paths():
@@ -642,7 +625,6 @@ def resize(eq,nx,ny=None,rdim=None,zdim=None):
 
     R=eq['r']; Z=eq['z']; PSIZR=eq['psizr']
 
-
     
     nW       = nx
     nH       = ny
@@ -656,19 +638,19 @@ def resize(eq,nx,ny=None,rdim=None,zdim=None):
     zStep    = zdim / ( nH - 1 )
     fStep    = -( simag - sibry ) / ( nW - 1 )
     rnew     = np.arange ( nW ) * rStep + rleft
-    znew     = np.arange ( nH ) * zStep + zmid #- zdim / 2.0
+    znew     = np.arange ( nH ) * zStep + zmid - zdim / 2.0
     fluxGrid = np.arange ( nW ) * fStep + simag
     
     interp_func = RectBivariateSpline(
         R,Z,PSIZR,
         bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
-    print('shape',nx,ny,rnew.shape,znew.shape)
-    XX,YY    = np.meshgrid(rnew,znew, indexing='ij')
+#    print('shape',nx,ny,rnew.shape,znew.shape)
+#    XX,YY    = np.meshgrid(rnew,znew, indexing='ij')
 
     neweq['r']        = rnew
     neweq['z']        = znew
     neweq['fluxGrid'] = fluxGrid
-    neweq['psizr']    = interp_func( XX,YY )
+    neweq['psizr']    = interp_func( rnew, znew )
     neweq['fpol']     = resize1D(eq['fluxGrid'],fluxGrid,eq['fpol'])
     neweq['pres']     = resize1D(eq['fluxGrid'],fluxGrid,eq['pres'])
     neweq['ffprim']   = resize1D(eq['fluxGrid'],fluxGrid,eq['ffprim'])
@@ -686,8 +668,8 @@ def rescaleB(eq,filename,s=1.,sR=1.):
     """
     import copy
 
-    R0=eq['rmaxis']
-    f=newR/R0
+#    R0=eq['rmaxis']
+#    f=newR/R0
     f=sR
 
     neweq=copy.deepcopy(eq)
@@ -699,7 +681,7 @@ def rescaleB(eq,filename,s=1.,sR=1.):
     neweq['simag']=eq['simag']*f
     neweq['sibry']=eq['sibry']*f
     neweq['current']=eq['current']*f
-    neweq['fluxgGrid']=eq['fluxGrid']*f
+    neweq['fluxGrid']=eq['fluxGrid']*f
 
     writeEQDSK(neweq,filename)
     return neweq
