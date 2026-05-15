@@ -30,6 +30,7 @@ def mapper(eqobj,jac='eqarc'):
   """
       
   dodebug=False #True
+  sepfrac=0.995  
   #print("type",str(type(eqobj)))
   if isinstance(eqobj,str):
     eq=eqdsk.readGEQDSK(eqobj)[0]
