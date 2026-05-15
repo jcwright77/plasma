@@ -164,6 +164,8 @@ def mapper(eqobj,jac='eqarc'):
 
   minmodes = 5
   maxmodes = 12
+  area1=0.
+  area2=0.  
   for c_idx,(cx,cy) in enumerate(psixy):
       #for each surface, low pass filter to central 8+ DC Fourier modes
       #remove last element for fft since it is equal to the first element
