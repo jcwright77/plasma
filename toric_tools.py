@@ -333,14 +333,19 @@ def write_equigs(eq,equigsfile):
 
         file.write(' Magnetic field at major radius (m)\n')
         file.write(f"{eq['bcentr']:18.9E}\n")
-        equigs["bcentr"] =eq['bcentr']
+        equigs["bcentr"] = np.abs(eq['bcentr'])
+        equigs["sign_bcenter"] = np.sign(eq['bcentr'])
 
         file.write(' Total toroidal current (kA)\n')
-        equigs["torcur"] =eq['current']/1000.
+        equigs["torcur"] =np.abs(eq['current']/1000.)
+        equigs["sign_torcur"] =np.sign(eq['current']/1000.)
         file.write(f"{equigs['torcur']:18.9E}\n") #eqdsk is in Amps, torlh in kAmps
 
+        equigs["rzmcs2d"]=eq['rzmcs2d']  #these are gotten from mapper.py and ffts
+        rmc2d,rms2d,zmc2d,zms2d=eq['rzmcs2d']
+        imom=rmc2d.shape[1]
         file.write(' Number of poloidal modes\n')
-        equigs["imom"] = 12
+        equigs["imom"] = imom-1
         file.write(f"{equigs['imom']:5}\n")
 
         file.write(' Number of radial mesh points\n')
@@ -353,11 +358,9 @@ def write_equigs(eq,equigsfile):
         formattedwrite(file,rhopol)
 
         file.write(' Fourier equilibrium coefficients\n')
-        equigs["rzmcs2d"]=eq['rzmcs2d']  #these are gotten from mapper.py and ffts
-        rmc2d,rms2d,zmc2d,zms2d=eq['rzmcs2d']
         formattedwrite(file,rmc2d[:,0]) #dc modes
         formattedwrite(file,zmc2d[:,0])
-        for i in range(1,rmc2d.shape[1]):
+        for i in range(1,imom):
             formattedwrite(file,rmc2d[:,i])
             formattedwrite(file,zms2d[:,i])
             formattedwrite(file,rms2d[:,i])
@@ -369,16 +372,16 @@ def write_equigs(eq,equigsfile):
         formattedwrite(file,qmap)
 
         file.write(' Current profile [kA]\n')
-        equigs["jcurr"]=eq['Ipsi']/1000.0
+        equigs["jcurr"]=np.abs(eq['Ipsi']/1000.0)
         formattedwrite(file,equigs["jcurr"])
 
         file.write(' Covariant B_phi, R*B_phi (m*T)\n')
         gmap=np.interp(eq['psipolmap'],eq['fluxGrid'],eq['fpol'])
-        equigs["gcov"] = gmap
+        equigs["gcov"] = np.abs(gmap)
         formattedwrite(file,gmap)
 
         file.write(' Rho toroidal\n')
-        equigs["rhotor"]=eq['rhotormap']  #NOT DEFINED YET, found from psitor=\int q dpsipol
+        equigs["rhotor"]=eq['rhotormap']
         formattedwrite(file,eq['rhotormap'])
 
         file.write(' Fraction Psi poloidal at last surface\n')
@@ -1526,7 +1529,10 @@ class toric_analysis:
                 print('lines',ll, type(ll) ) #.get_label() )
 
         #set axis floor at 0
-        ax1.set_ylim(0)
+        ymax=np.average(self.cdf_hdl.variables[ self.namemap['pelec'] ][14:])*20
+        #pnt('ymax',ymax,self.cdf_hdl.variables[ self.namemap['pelec'] ][:])
+
+        ax1.set_ylim(0,0.5)
         ax2.set_ylim(0)
         ax1.set_ylabel('Power',color='b')
         

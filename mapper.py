@@ -14,6 +14,10 @@ import matplotlib
 from packaging.version import Version
 
 mu0=4.*np.pi*1.e-7
+def calcarea(x,y):
+    #x=vs[:,0]
+    #y=vs[:,1]
+    return 0.5*np.sum(y[:-1]*np.diff(x) - x[:-1]*np.diff(y))
 
 def mapper(eqobj,jac='eqarc'):
   """
@@ -41,7 +45,7 @@ def mapper(eqobj,jac='eqarc'):
   curtor=[]
   area=[]
   mapzmaxis=float(0.0)
-  ifrhopol=False #use root psipol mesh instead of psipol (eg for torlh)
+  ifrhopol=True #False #use root psipol mesh instead of psipol (eg for torlh)
 
 
   def find_cut(x,y, rmaxis, zmaxis):
@@ -52,9 +56,11 @@ def mapper(eqobj,jac='eqarc'):
         return k
     return -1
 
-  r200=np.linspace(min(R),max(R),200)
-  z200=np.linspace(min(Z),max(Z),200)
-  RR,ZZ=np.mgrid [min(R):max(R):200j, min(Z):max(Z):200j ]
+
+  nsample=1200  
+  r200=np.linspace(min(R),max(R),1200)
+  z200=np.linspace(min(Z),max(Z),1200)
+  RR,ZZ=np.mgrid [min(R):max(R):1200j, min(Z):max(Z):1200j ]
 
   spline_psi = scipy.interpolate.RectBivariateSpline(R,Z,psi.T,bbox=[np.min(R),
                                       np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
@@ -80,16 +86,18 @@ def mapper(eqobj,jac='eqarc'):
   #initial psimesh is [-psimin,0].
   #the following is only necessary if psimesh is not uniform which it should be for an eqdsk file.
 
-  nidx=100
-
+  #nidx=100
+  sgnflux=np.sign(  eq['simag']+eq['sibry']  )
   if ifrhopol:
-    rhopol = np.linspace(np.sqrt(np.abs(eq['simag'])),np.sqrt(np.abs(eq['sibry'])),nidx)*np.sign(fity)
-    fity = rhopol**2*np.sign(fity) #reference psipol consistent with uniform rhopol
+    rhopol = np.sqrt(np.linspace( np.abs(eq['simag']),np.abs(eq['sibry'])*sepfrac,npsi)*sgnflux)
+    fity = rhopol**2*sgnflux #reference psipol consistent with uniform rhopol
     rhopol = np.linspace(0,1,npsi)
+    psimesh=fity
     eq['rhopolmap']=rhopol  #sqrt norm rho pol for map size npsi, linear spaced
   else:
-    psimesh=np.linspace(eq['simag'],eq['sibry'],npsi)
-    eq['rhopolmap']=np.sqrt(np.linspace(0.,1.,npsi))
+    psimesh=np.linspace(eq['simag'],eq['sibry']*sepfrac,npsi)
+    eq['rhopolmap']=np.sqrt(np.linspace(0.,sepfrac,npsi))
+    rhopol = np.linspace(0,1,npsi)
 
   rmaxis = eq['rmaxis']
   zmaxis = mapzmaxis #eq['zmaxis']
@@ -103,7 +111,7 @@ def mapper(eqobj,jac='eqarc'):
   psitormap=integrate.cumulative_trapezoid(qmap,psimesh,initial=0.0)
   rhotor=(psitormap-psitormap[0])/(psitormap[-1]-psitormap[0])
   eq['rhotormap']=rhotor
-
+    
 #Extract contours and values for flux coordinate system.
 #contours go counter-clockwise, which we want
 #contours don't necessarily start at y=0., so rebase
@@ -122,18 +130,18 @@ def mapper(eqobj,jac='eqarc'):
         v = pp.vertices
         x = v[:,0]
         y = v[:,1]
-        if np.abs(np.average(y))<0.20*np.max(eq['z']): #only keep core plasma contours
+        if np.abs(np.average(y))<0.10*eq['rmaxis'] and np.abs(np.average(x))<0.10*eq['rmaxis']: #only keep core plasma contours
           psixy.append( (x,y) )
   else:
-    for pp in psi_cs.get_paths():
-      v = pp.vertices
-      x = v[:,0]
-      y = v[:,1]
-    #print( len(y),np.abs(np.average(y)), np.max(eq['z']) )
-      if len(y)>1:
-        avgy=np.abs(np.average(y))
-        if avgy<0.20*np.max(eq['z']): #only keep core plasma contours
+    for i,crvs in enumerate(psi_cs.allsegs):
+      knds=psi_cs.allkinds[i]
+      for j,crv in enumerate(crvs):
+        x,y=zip(*crv)
+        knd=knds[j]
+        hasaxis=Path(crv,knd).contains_point( (eq['rmaxis'],eq['zmaxis'])  )      
+        if hasaxis:
           psixy.append( (x,y) )
+
 
 #Define uniform theta mesh
   uni_theta=np.linspace(0,2.0*np.pi,ntheta,endpoint=False)
@@ -142,11 +150,15 @@ def mapper(eqobj,jac='eqarc'):
   eq_x=[]
   eq_y=[]
 
-  points = np.array( (RR.flatten(), ZZ.flatten()) ).T
+#  print('grad psi, B shapes', grad_psi.shape, B.shape)
+  #points = np.array( (RR.flatten(), ZZ.flatten()) ).T
   gpsivalues = grad_psi.flatten()
-  Bpoints = np.array( (RR.flatten(), ZZ.flatten()) ).T
+  spline_psi = scipy.interpolate.RectBivariateSpline(r200,z200,grad_psi)
+  #Bpoints = np.array( (RR.flatten(), ZZ.flatten()) ).T
   Bvalues   = B.flatten()
-
+  rB = np.linspace(min(R),max(R),B.shape[0])
+  zB = np.linspace(min(R),max(R),B.shape[1])
+  spline_B = scipy.interpolate.RectBivariateSpline(rB,zB,B)
 
   minmodes = 5
   maxmodes = 12
@@ -155,7 +167,8 @@ def mapper(eqobj,jac='eqarc'):
       #remove last element for fft since it is equal to the first element
       #size of (cx,cy) is  variable
       #print('cx',c_idx, len(cx),len(cy),len(psixy),len(psixy[0]),psimesh[c_idx]) #just to see progress
-
+      area1=area2
+      area2=calcarea(cx,cy)
       #shift to midplane as first element
       idx=find_cut(cx,cy,rmaxis,zmaxis)
       if (idx>=0):
@@ -188,11 +201,11 @@ def mapper(eqobj,jac='eqarc'):
 
       # filtered_cx=cx ; filtered_cy=cy
       if jac=="straight":
-        c_B       = griddata( Bpoints, Bvalues, (filtered_cx,filtered_cy), method='cubic' )
+          c_B  = spline_B.ev(filtered_cx,filtered_cy)
+         # c_B  = griddata( Bpoints, Bvalues, (filtered_cx,filtered_cy), method='cubic' )
 
 
       #c_gradpsi = griddata( points, gpsivalues, (filtered_cx,filtered_cy), method='cubic' )
-      spline_psi = scipy.interpolate.RectBivariateSpline(r200,z200,grad_psi)
       c_gradpsi  = spline_psi.ev(filtered_cx,filtered_cy)
       
       #derivative from fft needs factor of 2pi
@@ -236,12 +249,15 @@ def mapper(eqobj,jac='eqarc'):
   eq['darea']=area
   eq['Jtor']=curtor
 
-  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0)
-#  Ipsi=scipy.integrate.cumulative_trapezoid( eq['dI_dpsi'],eq['psipolmap'], initial=0)
-  print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
-  Ipsi_mod=Ipsi*eq['current']/Ipsi[-1]  
+  #print('curtor size', len(curtor), len(area) )
+  #center_psimap=(( eq['psipolmap']+np.roll(eq['psipolmap'],1)  )/2)
+  #Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor'],eq['darea'], initial=0)
+  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
 
-  print("Corrected Current accuracy eqdsk,mapper", eq['current'],Ipsi_mod[-1]," rescaling")
+  print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
+  Ipsi_mod=Ipsi*eq['current']/Ipsi[-1] 
+#  eq['Jtor']=eq['Jtor']*eq['current']/Ipsi[-1] 
+  #Ipsi = scipy.integrate.cumulative_trapezoid( curtor, center_psimap, initial=0)
   eq['Ipsi']=Ipsi_mod
   
   #center_area=(( eq['darea_dpsi']+np.roll(eq['darea_dpsi'],1)  )/2)[1:]
@@ -252,15 +268,23 @@ def mapper(eqobj,jac='eqarc'):
   #add origin
   NXmap=np.zeros([npsi,ntheta])
   NZmap=np.zeros([npsi,ntheta])
-  print('Xmap',Xmap.shape,NXmap.shape,len(eq_x))
-  NXmap[0,:]=eq['rmaxis'] #origin for all theta
-  NZmap[0,:]=mapzmaxis #eq['zmaxis']
+  #print('Xmap',Xmap.shape,NXmap.shape,len(eq_x))
+  zax,rax=np.average((Zmap[0,:]-mapzmaxis)),np.average((Xmap[0,:]))
+  NZmap[0,:]= 0.0
+  #NZmap= NZmap - zax
+  NXmap[0,:]=rax #eq['zmaxis']
   NXmap[1:,:]=Xmap
   NZmap[1:,:]=Zmap
 
   print("Error or shift of vertical axis from zero is",
-        np.average(np.abs(Zmap[0,:]-mapzmaxis)) )
-
+        np.average((Zmap[0,:]-mapzmaxis)),np.average((Xmap[0,:])),
+        eq['zmaxis'],eq['rmaxis']
+       )
+  print(Zmap[0,:],mapzmaxis)
+  print("Error or shift of vertical axis from zero is",
+        np.average((Zmap[1,:]-mapzmaxis)),np.average((Xmap[1,:])),
+        eq['zmaxis'],eq['rmaxis']
+       )
   del(Xmap)
   del(Zmap)
   Xmap=NXmap
@@ -283,7 +307,7 @@ def plot_equilibrium(eq):
   fig.set_figheight(4)
 
   Xmap=eq['xmap'] ; Zmap=eq['zmap']
-  maxpsi=0.99
+  maxpsi=0.995
   maxpsiind=int(maxpsi*Xmap.shape[0])
   #Theta lines
   for i in np.arange(0,len(Xmap[0,:]),5):
