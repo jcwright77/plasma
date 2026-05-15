@@ -11,6 +11,7 @@ from plasma import  equilibrium_process as eqdsk
 
 import matplotlib.pyplot as plt
 import matplotlib
+from matplotlib.path import Path
 from packaging.version import Version
 
 mu0=4.*np.pi*1.e-7
