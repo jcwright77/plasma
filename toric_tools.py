@@ -467,7 +467,10 @@ def read_equigsfile(equigsfile='equigs.data'):
     return equigs
 
 
-def plot_equigs(equigs, ntheta=65):
+def plot_equigs(equigs, ntheta=65, ax=None):
+    if ax is None:
+        ax = plt.gca()
+        
     imom=equigs['imom'] 
     nmhd=equigs['nmhd']
     rzmcs2d=equigs['rzmcs2d']
@@ -504,23 +507,23 @@ def plot_equigs(equigs, ntheta=65):
             ztest[i,j]=np.sum(zmc2d[i,:]*np.cos(th*idx)+ zms2d[i,:]*np.sin(th*idx) )
 
     #Plot coordinate mesh
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    #fig = plt.figure()
+    #ax = fig.add_subplot(111)
     ax.set_aspect('equal')
-    fig.set_figheight(20)
+    #fig.set_figheight(12)
 
     #Theta lines
     for i in np.arange(0,len(rtest[0,:]),2):
-        plt.plot(rtest[:,i],ztest[:,i])
+        ax.plot(rtest[:,i],ztest[:,i])
 
     #Psi surface
-    for i in np.arange(0,len(rtest[:,0]),10):
-        plt.plot(rtest[i,:],ztest[i,:])
-        plt.plot(rtest[-1,:],ztest[-1,:])
+    for i in np.arange(0,len(rtest[:,0]),5):
+        ax.plot(rtest[i,:],ztest[i,:])
+    ax.plot(rtest[-1,:],ztest[-1,:])
 
-    plt.title('Toric Eq from equigs file '+equigs['file']);
+    ax.set_title('Toric Eq from equigs file '+equigs['file']);
 
-    return
+    return ax
 
 
 def XZ_from_equigs(equigs,dpsi=0,dtheta=0):

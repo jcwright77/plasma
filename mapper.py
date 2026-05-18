@@ -206,10 +206,7 @@ def mapper(eqobj,jac='eqarc'):
       # filtered_cx=cx ; filtered_cy=cy
       if jac=="straight":
           c_B  = spline_B.ev(filtered_cx,filtered_cy)
-         # c_B  = griddata( Bpoints, Bvalues, (filtered_cx,filtered_cy), method='cubic' )
 
-
-      #c_gradpsi = griddata( points, gpsivalues, (filtered_cx,filtered_cy), method='cubic' )
       c_gradpsi  = spline_psi.ev(filtered_cx,filtered_cy)
       
       #derivative from fft needs factor of 2pi
