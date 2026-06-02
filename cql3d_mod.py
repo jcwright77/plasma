@@ -7,8 +7,9 @@ Python class for reading in cql3d output files. Returns handle to cql3d instance
 import pylab as m
 import matplotlib.pyplot as plt
 #netcdf interface
-import scipy.io.netcdf as nc
+import scipy.io as sio
 import numpy as np
+nc=sio
 
 #UPdated May2011 for scipy 0.10 with .data netcdf attribute
 class cql3d:
@@ -146,7 +147,7 @@ class cql3d:
 
 
 #option of using radius index of value (nearest). Time step needed?
-    def fplot( self, irad=None, itime=None, species=None, fig=None,var=None,ptype='contour',range=None ):
+    def fplot( self, irad=None, itime=None, species=None, fig=None,var=None,ptype='contour',levels=32 ):
         """Contour plot of the distribution function at given radius.
         irad may be either the radial index or value. Also plots other
         3D velocity space variables. Use type='line' to get 8 pitch angle
@@ -203,8 +204,8 @@ class cql3d:
 
             plt.axis( ymin=0 )
             plt.title(str(f.long_name,'utf-8')+" ["+str(f.units,'utf-8')+"]",size=20)
-            plt.xlabel(r'$v_{||}/vnorm$ , enorm='+str(enorm),size=18)
-            plt.ylabel(r'$v_\bot/vnorm$, log10 scale' ,size=18)
+            plt.xlabel(r'$v/vnorm$ , enorm='+str(enorm),size=18)
+            plt.ylabel(r'$f(v)$, log10 scale' ,size=18)
             plt.legend(loc=1)
             
             return fig
@@ -218,12 +219,12 @@ class cql3d:
 #could also use gcf() to get current figure.
 
         ax = fig.add_subplot(111) #plot on existing canvas
-        v=(np.arange(30)/3.+7) #contouring levels, 6 appropriate for /cc
+#        v=(np.arange(30)/3.+7) #contouring levels, 6 appropriate for /cc
 
         if (species!=None):        
-            csf = ax.contourf(vpar,vperp,np.log10(abs(f[species,irad,:,:])+1.))
+            csf = ax.contourf(vpar,vperp,np.log10(abs(f[species,irad,:,:])+1.),levels)
         else:
-            csf = ax.contourf(vpar,vperp,np.log10(abs(f[irad,:,:])+1.))
+            csf = ax.contourf(vpar,vperp,np.log10(abs(f[irad,:,:])+1.),levels)
 
 #        cs = ax.contour(vpar,vperp,f[irad,:,:],v)
 # make sure aspect ratio preserved
@@ -244,7 +245,7 @@ class cql3d:
 
         return fig
     
-    def fplot_contour(self,idx,crange=[10,16],nlev=20):
+    def fplot_contour(self,idx,species=0,crange=[10,16],nlev=20):
         from matplotlib import patches
         import matplotlib.pyplot as plt
 
@@ -254,7 +255,7 @@ class cql3d:
         r,t = np.meshgrid(u,pitch[idx,:]) #important to have idx
         vpar0  = np.transpose(r*np.cos(t))
         vperp0 = np.transpose(r*np.sin(t))
-        plt.contour(vpar0,vperp0,np.log10(fdist[0,idx,:,:]+1),np.linspace(crange[0],
+        plt.contour(vpar0,vperp0,np.log10(fdist[species,idx,:,:]+1),np.linspace(crange[0],
                                                             crange[1],nlev));
         plt.colorbar();
 
