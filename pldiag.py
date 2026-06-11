@@ -526,7 +526,7 @@ class ToricDiagnostics:
             if len(singularities[res])>0:
                 lres=singularities[res][0]
                 for i in range(len(lres)):
-                    ax.plot(lres[0],lres[1],'-.')
+                    ax.plot(lres[i][0],lrespi[[1],'-.')
         print(f"Plotted magnetic configuration plots")
         
     def plot_metric_elements(self):

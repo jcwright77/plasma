@@ -118,7 +118,7 @@ def min_in_polygon(X, Y, Z, px, py, findmax=False, doplot=False):
     return max_val, ix_max, iy_max, x_max, y_max
  
  
-def mapper(eqobj,jac='eqarc'):
+def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False):
   """
     mapper calculates a r,theta cooridinate system within the last closed
     flux surface
@@ -128,9 +128,6 @@ def mapper(eqobj,jac='eqarc'):
     returnx Xmap,Zmap on r,theta grid
   """
       
-  dodebug=False #True
-  sepfrac=0.995  
-  #print("type",str(type(eqobj)))
   if isinstance(eqobj,str):
     eq=eqdsk.readGEQDSK(eqobj)[0]
   elif isinstance(eqobj,dict):
@@ -186,9 +183,10 @@ def mapper(eqobj,jac='eqarc'):
   spline_gpsi = scipy.interpolate.RectBivariateSpline(r200,z200,grad_psi)
   
   #check axis position
-  max_val, ix_max, iy_max, x_max, y_max = min_in_polygon(r200, z200, np.abs(psi_int.T), eq['rlim'], eq['zlim'],doplot=True)
+  max_val, ix_max, iy_max, x_max, y_max = min_in_polygon(r200, z200, np.abs(psi_int.T),
+                                                         eq['rlim'], eq['zlim'],doplot=True)
   print('maxind2',  max_val, ix_max, iy_max, x_max, y_max,rmaxis,zmaxis)
-#  eq['rmaxis'] = x_max
+  eq['rmaxis'] = x_max
 #  eq['zmaxis'] = y_max
   rmaxis=x_max #; zmaxis=y_max
   print('axis',rmaxis,zmaxis)
@@ -211,8 +209,7 @@ def mapper(eqobj,jac='eqarc'):
   #initial psimesh is [-psimin,0].
   #the following is only necessary if psimesh is not uniform which it should be for an eqdsk file.
 
-  #nidx=100
-  sgnflux=np.sign(  eq['simag']+eq['sibry']  )
+  sgnflux=1.0 #np.sign( -eq['simag']+eq['sibry']  )
   if ifrhopol:
     rhopol = np.sqrt(np.linspace( np.abs(eq['simag']),np.abs(eq['sibry'])*sepfrac,npsi)*sgnflux)
     fity = rhopol**2*sgnflux #reference psipol consistent with uniform rhopol
@@ -268,7 +265,7 @@ def mapper(eqobj,jac='eqarc'):
 
 
   minmodes = 5
-  maxmodes = 12
+  maxmodes = maxmom
   area1=0.
   area2=0.  
   for c_idx,(cx,cy) in enumerate(psixy):
@@ -400,7 +397,7 @@ def plot_equilibrium(eq):
   fig.set_figheight(4)
 
   Xmap=eq['xmap'] ; Zmap=eq['zmap']
-  maxpsi=0.995
+  maxpsi=0.99
   maxpsiind=int(maxpsi*Xmap.shape[0])
   #Theta lines
   for i in np.arange(0,len(Xmap[0,:]),5):
@@ -409,4 +406,5 @@ def plot_equilibrium(eq):
   #Psi surface
   for i in np.arange(0,len(Xmap[:maxpsiind,0]),5):
     ax.plot(Xmap[i,:],Zmap[i,:])
-  ax.set_title('Surfaces of constant theta and psi (every 10th)');
+  ax.set_title('Surfaces of constant theta and psi (every 5th)');
+

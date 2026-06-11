@@ -53,13 +53,14 @@
 # ZBBBS: Z of boundary points in meter                                 - ZBND
 # RLIM: R of surrounding limiter contour in meter                      - RLIM
 # ZLIM: Z of surrounding limiter contour in meter                      - ZLIM
+import numpy as np
+import matplotlib.pyplot as plt
 
 def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=False, width=9,
                cocos=3, dolimiter=None, ax=None, dodebug=False):
     import re
     import numpy as np
     import matplotlib.pyplot as plt
-
     file = open (filename)
     data    = file.read ()
 
@@ -257,7 +258,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
 
     with open(filename, "r") as fh:
         [casestr, idum, nw, nh]            = f2000.read(next(fh))
-        [rdim,zdim,rcentr,rleft,zmid]      = f2020.read(next(fhh))
+        [rdim,zdim,rcentr,rleft,zmid]      = f2020.read(next(fh))
         [rmaxis,zmaxis,simag,sibry,bcentr] = f2020.read(next(fh))
         [current,simag,xdum,rmaxis,xdum]   = f2020.read(next(fh))
         [zmaxis,xdum,sibry,xdum,xdum]      = f2020.read(next(fh))
@@ -320,34 +321,19 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.set_aspect(asp)
-            plt.contour ( Rv, Zv, psizr, N )
+            CS=ax.contour ( Rv, Zv, psizr, N )
+            ax.set_autoscalex_on(False)
+            plt.colorbar(CS)
             plt.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
             if (dolimiter):
                 plt.plot ( rlim, zlim, 'g', linewidth = 4 )
-            plt.show ()
         else:
-            ax.contour (Rv, Zv, psizr, N )
+            CS=ax.contour (Rv, Zv, psizr, N )
+            ax.set_autoscalex_on(False)
             ax.plot ( rbbbs, zbbbs, 'k', linewidth = 3 )
             if (dolimiter):
                 ax.plot ( rlim, zlim, 'g', linewidth = 4 )
-
-#    Xmap and Zmap are X,Z(Psi,threta)             
-#    nmhd=100 ; ntheta = 128 ; imom = 16
-#    rmc2d=np.zeros([nmhd,imom+1])
-#    rms2d=np.zeros([nmhd,imom+1])
-#    zmc2d=np.zeros([nmhd,imom+1])
-#    zms2d=np.zeros([nmhd,imom+1])
-#    for i in range(nmhd):
-#        cX=sft.fft(Xmap[i,:])/np.float(ntheta)
-#        cZ=sft.fft(Zmap[i,:])/np.float(ntheta)
-#        rmc2d[i,0]=np.real(cX[0])
-#        rmc2d[i,1:]=np.real(cX[1:imom+1]+np.flip(cX)[0:imom])
-#        rms2d[i,1:]=np.real((cX[1:imom+1]-np.flip(cX)[0:imom])*complex(0.,1,))
-#        zmc2d[i,0]=np.real(cZ[0])
-#        zmc2d[i,1:]=np.real(cZ[1:imom+1]+np.flip(cZ)[0:imom])
-#        zms2d[i,1:]=np.real((cZ[1:imom+1]-np.flip(cZ)[0:imom])*complex(0.,1,))
-
-
+            plt.colorbar(CS)
     eqdsk = {'nW':nw, 'nH':nh, 'nbbbs':nbbbs, 'limitr':limitr, 'rdim':rdim,
              'zdim':zdim, 'rcentr':rcentr, 'rleft':rleft, 'zmid':zmid,
              'rmaxis':rmaxis, 'zmaxis':zmaxis, 'simag':simag, 'sibry':sibry,
@@ -355,9 +341,15 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
              'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z, 'psirz':psizr.T,
              'fluxGrid':fluxGrid, 'cocos':cocos, 'name':filename}
-#    eqdsk['rzmc2d']=[rmc2d,rms2d,zmc2d,zms2d]
+    
+
+    eqdsk['cocos'] = get_cocos(eqdsk)
     
     return eqdsk,fig
+
+
+def get_cocos(eq):
+    return 3
 
 
 def getModB(eq,rdict=False):
@@ -381,10 +373,12 @@ def getModB(eq,rdict=False):
 
     R=eq.get('r')
     Z=eq.get('z')
-    Rv,Zv=np.meshgrid(R,Z,indexing='ij') #these are R and Z on RZ mesh, first index for Z , default indexing
+    Rv,Zv=np.meshgrid(R,Z,indexing='ij')
+    #these are R and Z on RZ mesh, first index for Z , default indexing
     psiZR=eq.get('psizr')
 
-    spline_psi = interpolate.RectBivariateSpline(R,Z,psiZR,bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],
+    spline_psi = interpolate.RectBivariateSpline(R,Z,psiZR,
+                                                 bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],
                                                  kx=5,ky=5)
     psi_int_r=spline_psi.ev(Rv,Zv,dx=1)/fluxfactor
     psi_int_z=spline_psi.ev(Rv,Zv,dy=1)/fluxfactor
@@ -473,10 +467,12 @@ def plotEQDSK(eq,asp=1.0):
     ax1.grid()
     ax1.set_title("Magnetic field components")
     ax1.plot(R,modB [:,nz2-1],'purple',label='B')
-    ax1.plot(R,BV[1][:,nz2-1],'black',label='Btor')
+    ax1.plot(R,BV[1][:,nz2-1],'k.',label='Btor')
     ax1.plot(R,BV[2][:,nz2-1],'orange',label='BZ-mid')
     ax1.plot(R,BV[0][:,nz2-1],'r-.',label='BR-mid')
     ax1.plot(R,BV[0][:,int(nz2*3/2)-1],'r-.',label='BR-3/4')
+    ax1.set_xlim(np.min(eq.get('rlim')) , np.max(eq.get('rlim')) )
+    ax1.set_ylim( -modB[nr2,nz2]*2 , modB[nr2,nz2]*2 )
     ax1.legend(bbox_to_anchor=(-0.1,0.75))
 
     ax2.set_title('Flux surfaces')
@@ -486,13 +482,13 @@ def plotEQDSK(eq,asp=1.0):
     ax2.set_aspect(asp)
 
     ax3.set_title('Profiles')
+    if eq['ffprim'][0]>0:
+        ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], 'o', label="FF' norm")
     ax3.plot(eq['fluxGrid'], eq['qpsi'],                   label='q')
     if eq['fpol'][0]>0:
         ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],    label='F/F(0)')
     if eq['pres'][0]>0:
         ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],     label='p/p(0)')
-    if eq['ffprim'][0]>0:
-        ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], label="FF' norm")
     if eq['pprime'][0]>0:
         ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0], label="p' norm")
     ax3.legend(bbox_to_anchor=(-0.1,0.5))
