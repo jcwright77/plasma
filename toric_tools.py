@@ -741,7 +741,7 @@ class toric_analysis:
 
     def __init__ (self, toric_name='toric.ncdf', toric_data="toric.data",
                   mode='ICRF', idebug=False, comment='', layout='poster',
-                  path="./"):
+                  path="./",prefix=''):
         import socket
         from time import gmtime
 
@@ -758,13 +758,14 @@ class toric_analysis:
         self.set_layout(layout)
 
         self.path=path
+        self.prefix=prefix
 
         self.prov = {"user":"noname","host":"noname","gmtime":"notime","runid":"noid",
-                "path":"", "comment":""}
+                     "path":"", prefix=self.prefix, "comment":""}
         self.label = True
         self.equigs = {}
         self.toricdict={}
-        self.nml=f90nml.read(os.path.join(path,'torica.inp') )
+        self.nml=f90nml.read(os.path.join(path,(prefix+'torica.inp') ))
 
         if (self.mode[:2]=='LH'):
             self.namemap={'xpsi':'tpsi','poynt':'vpoynt','pelec':'S_eld',
@@ -778,21 +779,21 @@ class toric_analysis:
 
 ##Open the toric netcdf file
         try:
-            self.cdf_hdl = netcdf_file(path+self.toric_name,mmap=False )
-            dvs = self.cdf_hdl.variables
+            self.cdf_hdl = netcdf_file(path+self.prefix+self.toric_name,mmap=False )
+            dvs = self.cdf_hdl.variable
         except IOError:
             print ('CRITICAL: ',self.toric_name,' not found.')
             self.cdf_hdl = None
             return 
 
         try:
-            self.qlde_hdl = netcdf_file(path+"toric_qlde.cdf",mmap=False)
+            self.qlde_hdl = netcdf_file(path+self.prefix+"toric_qlde.cdf",mmap=False)
         except IOError:
-            print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
+            print ('Non-CRITICAL: ',path+self.prefix+"toric_qlde.cdf",' not found.')
             self.qlde_hdl = None
 
         try:
-            self.data_hdl = netcdf_file(path+self.toric_data,mmap=False )
+            self.data_hdl = netcdf_file(path+self.prefix+self.toric_data,mmap=False )
         except IOError:
             print ('CRITICAL: ',self.toric_data,' not found.')
             self.data_hdl = None
@@ -842,12 +843,12 @@ class toric_analysis:
         try:
             self.qlde_hdl.close()
         except IOError:
-            print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
+            print ('Non-CRITICAL: ',path+self.prefix+"toric_qlde.cdf",' not found.')
 
         try:
             self.data_hdl.close()
         except IOError:
-            print ('Non-CRITICAL: ',path+self.toric_data,' not found.')
+            print ('Non-CRITICAL: ',path+self.prefix+self.toric_data,' not found.')
 
         return
 
@@ -1394,7 +1395,7 @@ class toric_analysis:
                               ant_it_pos,ant_it_height,sx)
         if self.label:
             ax=plt.gca()
-            sublabel=self.prov['path']
+            sublabel=self.prov['path']+self.prefix
             if self.idebug: print ('sublabel: ',sublabel)
             plt.text(-0.2,-0.3,sublabel,transform = ax.transAxes,fontsize=4)
 

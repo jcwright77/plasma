@@ -26,7 +26,7 @@ def calcarea(x,y):
 
 def min_in_polygon(X, Y, Z, px, py, findmax=False, doplot=False):
     """
-    Find the maximum value of a 2D field inside a polygon.
+    Find the minimum value of a 2D field inside a polygon.
  
     Parameters
     ----------
@@ -111,14 +111,14 @@ def min_in_polygon(X, Y, Z, px, py, findmax=False, doplot=False):
         ax.plot(*poly_closed, "w-", lw=2, label="Polygon")
         ax.plot(x_max, y_max, "r*", markersize=18, label=f"Max = {max_val:.3f}")
  
-        ax.set_title("Maximum in 2-D field inside polygon")
+        ax.set_title("Minimum in 2-D field inside polygon")
         ax.legend()
         plt.tight_layout()
         
     return max_val, ix_max, iy_max, x_max, y_max
  
  
-def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False):
+def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False):
   """
     mapper calculates a r,theta cooridinate system within the last closed
     flux surface
@@ -184,7 +184,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False):
   
   #check axis position
   max_val, ix_max, iy_max, x_max, y_max = min_in_polygon(r200, z200, np.abs(psi_int.T),
-                                                         eq['rlim'], eq['zlim'],doplot=True)
+                                                         eq['rlim'], eq['zlim'],doplot=doplot)
   print('maxind2',  max_val, ix_max, iy_max, x_max, y_max,rmaxis,zmaxis)
   eq['rmaxis'] = x_max
 #  eq['zmaxis'] = y_max
@@ -251,7 +251,8 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False):
         v = pp.vertices
         x = v[:,0]
         y = v[:,1]
-        if np.abs(np.average(y))<0.05*rmaxis and np.abs(np.average(x))<0.10*rmaxis: #only keep core plasma contours
+        #only keep core plasma contours
+        if np.abs(np.average(y))<0.05*rmaxis and np.abs(np.average(x))<0.10*rmaxis:
           psixy.append( (x,y) )
   else:
     for i,crvs in enumerate(psi_cs.allsegs):
