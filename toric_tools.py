@@ -761,7 +761,7 @@ class toric_analysis:
         self.prefix=prefix
 
         self.prov = {"user":"noname","host":"noname","gmtime":"notime","runid":"noid",
-                     "path":"", prefix=self.prefix, "comment":""}
+                     "path":"", "prefix":self.prefix, "comment":""}
         self.label = True
         self.equigs = {}
         self.toricdict={}
