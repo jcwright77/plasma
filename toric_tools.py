@@ -780,7 +780,7 @@ class toric_analysis:
 ##Open the toric netcdf file
         try:
             self.cdf_hdl = netcdf_file(path+self.prefix+self.toric_name,mmap=False )
-            dvs = self.cdf_hdl.variable
+            dvs = self.cdf_hdl.variables
         except IOError:
             print ('CRITICAL: ',self.toric_name,' not found.')
             self.cdf_hdl = None
@@ -794,8 +794,12 @@ class toric_analysis:
 
         try:
             self.data_hdl = netcdf_file(path+self.prefix+self.toric_data,mmap=False )
-        except IOError:
-            print ('CRITICAL: ',self.toric_data,' not found.')
+        except FileNotFoundError:
+            pass
+        try:
+            self.data_hdl = netcdf_file(path+self.prefix+'fort.9',mmap=False )
+        except FileNotFoundError:
+            print ('CRITICAL: ',self.toric_data,' and fort.9 not found.')
             self.data_hdl = None
 
         xx = dvs[self.namemap['xplasma']].data
