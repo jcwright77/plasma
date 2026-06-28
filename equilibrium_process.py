@@ -359,9 +359,10 @@ def convert_cocos(eq,cocos_in=3,cocos_out=3):
     if eq['cocos']%10==3 : sbp=-1.0
 
     #need better treatment for case where q is not one sign
-    if cocos_out%10 in [1,2,7,8] : eq['q']=np.abs(eq['q'])
+    if cocos_out%10 in [1,2,7,8] : eq['qpsi']=np.abs(eq['qpsi'])
     eq['fluxGrid']*=(1./fluxfactor)
     eq['psizr']*=(1./fluxfactor)
+    eq['cocos']=1
     return eq
 
 def getModB(eq,rdict=False):
