@@ -18,9 +18,10 @@ def print_vector(nrep,fstr,a):
     Converts an array of numbers into a string formated by fstr with
     nrep values per line.
     """
-    n=a.size
+    aa=np.array(a)
+    n=aa.size
     pa=""
-    ta=a.reshape((a.size),order='F')
+    ta=aa.reshape(aa.size,order='F')
     for j in range(0,n,nrep):
         pa=pa+ "".join(map(lambda f: fstr % f, ta[j:min(j+nrep,n)]))+"\n"
     return pa
@@ -67,7 +68,6 @@ def get_spec_toric(toricnml):
     #print('spec',len(spec_toric),toricnml['equidata']['atm'],spec_toric)
     return spec_toric
 
-
 def write_profnt(fname,equidt):
     """
     Inputs:
@@ -95,61 +95,62 @@ def write_profnt(fname,equidt):
     f0005=ff.FortranRecordWriter('a32')
     f0006=ff.FortranRecordWriter('1e16.9')
     
-    with open(fname,'w') as of:
-        iatm=equidt['iatm']
-        iazi=equidt['iazi']
-        nspec=equidt['nspec']
-        mainsp=equidt['mainsp']
-        aconc=equidt['aconc']
-        nprodt=equidt['nprodt']
-        kdiff_itemp=equidt['kdiff_itemp']
-        kdiff_idens=equidt['kdiff_idens']
-        variantid=equidt['variant']
-        ion_temp=equidt['ion_temp']
-        of.write( f0001.write([variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp]) )
+    iatm=equidt['iatm']
+    iazi=equidt['iazi']
+    nspec=equidt['nspec']
+    mainsp=equidt['mainsp']
+    aconc=equidt['aconc']
+    nprodt=equidt['nprodt']
+    kdiff_itemp=equidt['kdiff_itemp']
+    kdiff_idens=equidt['kdiff_idens']
+    variantid=equidt['variant']
+    ion_temp=equidt['ion_temp']
+    
+    with open(fname,'w',encoding="utf-8") as of:
+        of.write( f0001.write([variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp])+'\n' )
         if equidt['variant']=='Rfxqlo_Pro':
             rfxqlo_pro_variant = True
         else:
             rfxqlo_pro_variant = False
-
             
         for isp in range(nspec):
-             of.write( f0002.write( [iatm[isp],iazi[isp]] ) )
+             of.write( f0002.write( [iatm[isp],iazi[isp]] )+'\n' )
 
         for profile in keys: #write electron profiles
-            of.write( f0004.write( equidt[profile] ) )
+            of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
+            of.write( f0004.write( equidt[profile] ) +'\n')
 
              
-            #mainsp=1
-            #namelist['equidata']['mainsp']=mainsp
-            kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
-            kdiff_itemp=equidt['kdiff_itemp'] #0 #one ion temp
-            of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.
-            format('profnt_py', nprodt,nspec, mainsp,kdiff_idens,kdiff_itemp))
-            for isp in range(nspec):
-                of.write('{:4d}{:4d}\n'.
-                  format(int(equidt['iatm'][isp]),int(equidt['iazi'][isp])) )
-            profiles=['rhopro','tbne','tbte']
-            for profile in profiles:
-                of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
-                of.write(print_vector(5,'%16.9e',np.array(equidt[profile])))
+        #mainsp=1
+        #namelist['equidata']['mainsp']=mainsp
+        kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
+        kdiff_itemp=equidt['kdiff_itemp'] #0 #one ion temp
+        #of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.
+        #         format('profnt_py', nprodt,nspec, mainsp,kdiff_idens,kdiff_itemp))
+        #for isp in range(nspec):
+        #    of.write('{:4d}{:4d}\n'.
+        #             format(int(equidt['iatm'][isp]),int(equidt['iazi'][isp])) )
+        #profiles=['rhopro','ne','te']
+        #for profile in profiles:
+        #    of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
+        #    of.write(print_vector(5,'%16.9e',np.array(equidt[profile])))
 
-            #write ion densities and temperatures
-            for isp in range(nspec):
-                if kdiff_idens==0:
-                    of.write('{:<10s}\n'.format('ni_conc'+str(isp)))
-                    of.write('%16.9e \n' % equidt['aconc'][isp])
-                else:
-                    of.write('{:<10s}\n'.format('tbni'+str(isp)))
-                    of.write(print_vector(5,'%16.9e',equidt['ni'][:,isp]))
+        #write ion densities and temperatures
+        for isp in range(nspec):
+            if kdiff_idens==0:
+                of.write('{:<10s}\n'.format('ni_conc'+str(isp)))
+                of.write('%16.9e \n' % equidt['aconc'][isp])
+            else:
+                of.write('{:<10s}\n'.format('tbni'+str(isp)))
+                of.write(print_vector(5,'%16.9e',equidt['ni'][:,isp]))
 
-                if kdiff_itemp==0 and isp==0:
-                    of.write('{:<10s}\n'.format('ion_temp') )
-                    of.write(print_vector(5,'%16.9e',equidt['ti_provv']))
+            if kdiff_itemp==0 and isp==0:
+                of.write('{:<10s}\n'.format('ion_temp') )
+                of.write(print_vector(5,'%16.9e',equidt['ion_temp']))
 
-                if kdiff_itemp==1:
-                    of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
-                    of.write(print_vector(5,'%16.9e',equidt['ti_provv'][:,isp]))
+            if kdiff_itemp==1:
+                of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
+                of.write(print_vector(5,'%16.9e',equidt['ion_temp'][:,isp]))
 
 
 def readArray(of,fmt,shp,nperline=5):
@@ -231,7 +232,7 @@ def read_equidt(filename,idebug=False):
                     ion_dens[:,isp]=readArray(of,f0004,[nprodt])
 
                 if kdiff_idens < 0:
-                    ion_dens[:,isp] *= profiles['ne']
+                    ion_dens[:,isp] = profiles['ne']  #*=
                 
                 if kdiff_idens == 0: #scalar concentrations used
                     [proname]=f0005.read(next(of))

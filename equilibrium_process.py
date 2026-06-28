@@ -220,7 +220,7 @@ def readGEQDSK(filename='eqdsk.dat', dointerior=False, doplot=False, width=9,
     return eqdsk,fig
 
 
-def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
+def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=0,
                 doplot=None, dolimiter=None, ax=None, dodebug=False, asp=1.0):
     """
     Read an eqdsk file for various cocos conventions, optionally produce a plot
@@ -343,7 +343,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
              'fluxGrid':fluxGrid, 'cocos':cocos, 'name':filename}
     
 
-    eqdsk['cocos'] = get_cocos(eqdsk)
+    if cocos==0: eqdsk['cocos'] = get_cocos(eqdsk)
     
     return eqdsk,fig
 
@@ -351,6 +351,18 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=3,
 def get_cocos(eq):
     return 3
 
+def convert_cocos(eq,cocos_in=3,cocos_out=3):
+    if cocos_in==cocos_out: return eq
+
+    fluxfactor=1.0 ; sbp = +1.0
+    if eq['cocos']>=11   : fluxfactor=2.*np.pi
+    if eq['cocos']%10==3 : sbp=-1.0
+
+    #need better treatment for case where q is not one sign
+    if cocos_out%10 in [1,2,7,8] : eq['q']=np.abs(eq['q'])
+    eq['fluxGrid']*=(1./fluxfactor)
+    eq['psizr']*=(1./fluxfactor)
+    return eq
 
 def getModB(eq,rdict=False):
     """
