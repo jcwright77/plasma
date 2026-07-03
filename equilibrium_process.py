@@ -240,6 +240,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=0,
     f2022=ff.FortranRecordReader('2i5')
     xdum = np.zeros(5)
 
+    fname=str(filename)
 
     def readVar(fmt,line):
         return fmt.read(line)
@@ -256,7 +257,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=0,
         return np.reshape(np.array(vals[0:N]),shp)
 
 
-    with open(filename, "r") as fh:
+    with open(fname, "r") as fh:
         [casestr, idum, nw, nh]            = f2000.read(next(fh))
         [rdim,zdim,rcentr,rleft,zmid]      = f2020.read(next(fh))
         [rmaxis,zmaxis,simag,sibry,bcentr] = f2020.read(next(fh))
@@ -340,7 +341,7 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=0,
              'bcentr':bcentr, 'current':current, 'fpol':fpol, 'pres':pres,
              'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z, 'psirz':psizr.T,
-             'fluxGrid':fluxGrid, 'cocos':cocos, 'name':filename}
+             'fluxGrid':fluxGrid, 'cocos':cocos, 'name':fname}
     
 
     if cocos==0: eqdsk['cocos'] = get_cocos(eqdsk)
@@ -362,6 +363,8 @@ def convert_cocos(eq,cocos_in=3,cocos_out=3):
     if cocos_out%10 in [1,2,7,8] : eq['qpsi']=np.abs(eq['qpsi'])
     eq['fluxGrid']*=(1./fluxfactor)
     eq['psizr']*=(1./fluxfactor)
+    eq['sibry']*=(1./fluxfactor)
+    eq['simag']*=(1./fluxfactor)
     eq['cocos']=1
     return eq
 
