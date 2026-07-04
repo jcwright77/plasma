@@ -793,20 +793,23 @@ class toric_analysis:
             print ('Non-CRITICAL: ',path+self.prefix+"toric_qlde.cdf",' not found.')
             self.qlde_hdl = None
 
+        self.data_hdl = None            
         try:
             self.data_hdl = netcdf_file(path+self.prefix+self.toric_data,mmap=False )
         except FileNotFoundError:
-            pass
+            print ('CRITICAL: ',path+self.prefix+self.toric_data,' not found.')
+
         try:
             self.data_hdl = netcdf_file(path+self.prefix+'fort.9',mmap=False )
         except FileNotFoundError:
-            print ('CRITICAL: ',self.toric_data,' and fort.9 not found.')
-            self.data_hdl = None
+            print ('CRITICAL: ',path+self.prefix+'fort.9 not found')
+
 
         xx = dvs[self.namemap['xplasma']].data
-        nant=1
+
         self.nspec=self.nml['equidata'].get('nspec')
         if not self.nspec: print('Warning nspec not found in namelist')
+        nant = self.nml['toricainp'].get('nant')
 
         self.spec=self.get_spec()
         if self.data_hdl:
@@ -867,6 +870,7 @@ class toric_analysis:
                 print ('----------------------------------------------')
                 print ("The global attributes: ",self.cdf_hdl.dimensions.keys())
                 print ("File contains the variables: ", self.cdf_hdl.variables.keys())
+                print ("Antenna", self.antenna )
 
         if self.qlde_hdl:
             for hdl in [self.qlde_hdl]:
@@ -1386,13 +1390,15 @@ class toric_analysis:
         ant_it_height= int(sx*self.antenna['length']/2/
                            ( 2.*np.pi * self.antenna['radius'] ) )
 
-        ant_it_pos   =int(self.antenna['theta']*sx/360.)
-        r1=np.arange(  ant_it_pos, ant_it_pos+ant_it_height+1)%sx
-        r2=np.arange( (ant_it_pos-ant_it_height), (ant_it_pos+1))%sx
-        plt.plot(  xxx[ r1, self.antenna['ipsi'] ],
+        ant_it_pos   = (self.antenna['theta']*sx/360.).astype(int)
+
+        for ait in ant_it_pos:
+            r1=np.arange(  ait, ait+ant_it_height+1)%sx
+            r2=np.arange( (ait-ant_it_height), (ait+1))%sx
+            plt.plot(  xxx[ r1, self.antenna['ipsi'] ],
                    yyy[ r1, self.antenna['ipsi'] ],
                    'orange',linewidth=4 )
-        plt.plot(  xxx[ r2, self.antenna['ipsi'] ],
+            plt.plot(  xxx[ r2, self.antenna['ipsi'] ],
                    yyy[ r2, self.antenna['ipsi'] ],
                    'orange',linewidth=4 )
 
