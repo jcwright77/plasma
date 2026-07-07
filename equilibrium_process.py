@@ -352,21 +352,26 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=0,
 def get_cocos(eq):
     return 3
 
+
 def convert_cocos(eq,cocos_in=3,cocos_out=3):
+    """ In progress. Convert to coco1 then to cocos_out"""
     if cocos_in==cocos_out: return eq
 
-    fluxfactor=1.0 ; sbp = +1.0
+    decpsi= (eq['sibry']<eq['simag'])
+    fluxfactor=1.0 ; sbp = +1.0 ; signpsi = 1.0
     if eq['cocos']>=11   : fluxfactor=2.*np.pi
     if eq['cocos']%10==3 : sbp=-1.0
-
+    if eq['cocos']%10==7 and decpsi: signpsi=-1.0 #make it increasing
+    
     #need better treatment for case where q is not one sign
     if cocos_out%10 in [1,2,7,8] : eq['qpsi']=np.abs(eq['qpsi'])
     eq['fluxGrid']*=(1./fluxfactor)
-    eq['psizr']*=(1./fluxfactor)
-    eq['sibry']*=(1./fluxfactor)
-    eq['simag']*=(1./fluxfactor)
+    eq['psizr']*=(1./fluxfactor)*signpsi
+    eq['sibry']*=(1./fluxfactor)*signpsi
+    eq['simag']*=(1./fluxfactor)*signpsi
     eq['cocos']=1
     return eq
+
 
 def getModB(eq,rdict=False):
     """
