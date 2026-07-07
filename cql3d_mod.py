@@ -121,7 +121,7 @@ class cql3d:
         vpar  = np.transpose(r*np.cos(t))
         vperp = np.transpose(r*np.sin(t))
 
-        species = 1
+        #species = 1
 
         if (fig==None):
             fig=plt.figure(figsize=(2.1*figscale,1*figscale))
@@ -130,6 +130,7 @@ class cql3d:
         ax = fig.add_subplot(111) #plot on existing canvas
         v=(np.arange(30)/3.+7) #contouring levels, 6 appropriate for /cc
         if (species!=None):
+            print('tplot',species)
             csf = ax.contourf(vpar,vperp,np.log10(abs(f[species,irad,:,:])+1.))
         else:
             csf = ax.contourf(vpar,vperp,np.log10(abs(f[irad,:,:])+1.))
@@ -150,7 +151,7 @@ class cql3d:
     def fplot( self, irad=None, itime=None, species=None, fig=None,var=None,ptype='contour',levels=32 ):
         """Contour plot of the distribution function at given radius.
         irad may be either the radial index or value. Also plots other
-        3D velocity space variables. Use type='line' to get 8 pitch angle
+        3D velocity space variables. Use ptype='line' to get 8 pitch angle
         slices""" 
 
         figscale=3 #scale up figure (1 in height originally)
@@ -169,6 +170,7 @@ class cql3d:
         pitch = self.cqlhdl.variables['y'][:]
         rya   = self.cqlhdl.variables['rya'][:]
         enorm = self.cqlhdl.variables['enorm'].getValue()
+        en    = self.cqlhdl.variables['enerkev'][:]
 #f is on a polar coordinate mesh. We need to generate a 2D cartesian mapping
 #to vpar=u cos(pitch[ir,:]) and vperp = u sin(pitch[ir,:])
 #the numpy meshgrid command does this for us.
@@ -188,6 +190,18 @@ class cql3d:
         r,t = np.meshgrid(u,pitch[irad,:])
         vpar  = np.transpose(r*np.cos(t))
         vperp = np.transpose(r*np.sin(t))
+
+        if (ptype=='avg'):
+            fig=plt.figure()
+            nt = self.cqlhdl.dimensions['ydim']
+            c  = 2.99792458e10
+            vnorm = self.cqlhdl.variables['vnorm'].getValue()
+            uscaled = np.array(u)*vnorm/c
+            if (species!=None):
+                plt.plot(en,np.log10(np.average(f[species,irad,:,:],axis=1) ) )
+            else:
+                plt.plot(en,np.log10(np.average(f[irad,:,:], axis=1) ) )
+            return fig
 
         if (ptype=='line'):
             fig=plt.figure()
