@@ -104,28 +104,30 @@ def min_in_polygon(X, Y, Z, px, py, findmax=False, doplot=False):
 
     if doplot:
         fig, ax = plt.subplots(figsize=(7, 6))
-        c = ax.contourf(X, Y, Z, levels=40, cmap="viridis")
+        c = ax.contour(X, Y, Z, levels=40, cmap="viridis")
         fig.colorbar(c, ax=ax, label="Z value")
+        ax.set_aspect('equal')
  
         poly_closed = np.append(px, px[0]), np.append(py, py[0])
-        ax.plot(*poly_closed, "w-", lw=2, label="Polygon")
+        ax.plot(*poly_closed, "k-", lw=2, label="Polygon")
         ax.plot(x_max, y_max, "r*", markersize=18, label=f"Max = {max_val:.3f}")
  
         ax.set_title("Minimum in 2-D field inside polygon")
-        ax.legend()
+        ax.legend(loc="upper left")
         plt.tight_layout()
         
     return max_val, ix_max, iy_max, x_max, y_max
  
  
-def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False):
+def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
+           sepfrac=0.98,dodebug=False,doplot=False,ifrhopol=True):
   """
     mapper calculates a r,theta cooridinate system within the last closed
     flux surface
     eqfile: filename of geqdesk file or dictionary of values from geqdsk file
     jac: 'straight' or 'eqarc' 
 
-    returnx Xmap,Zmap on r,theta grid
+    returns Xmap,Zmap on r,theta grid
   """
       
   if isinstance(eqobj,str):
@@ -142,7 +144,6 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
   curtor=[]
   area=[]
   mapzmaxis=float(0.0)
-  ifrhopol=True #False #use root psipol mesh instead of psipol (eg for torlh)
 
 
   def find_cut(x,y, rm, zm):
@@ -153,11 +154,6 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
         return k
     return -1
 
-  #generated mapped mesh size:
-  npsi=280
-  ntheta=128
-
-  nsample=1200  
   r200=np.linspace(min(R),max(R),nsample)
   z200=np.linspace(min(Z),max(Z),nsample)
   RR,ZZ=np.mgrid [min(R):max(R):np.complex64(0,nsample), min(Z):max(Z):np.complex64(0,nsample) ]
@@ -183,13 +179,12 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
   spline_gpsi = scipy.interpolate.RectBivariateSpline(r200,z200,grad_psi)
   
   #check axis position
-  max_val, ix_max, iy_max, x_max, y_max = min_in_polygon(r200, z200, np.abs(psi_int.T),
+  max_val, ix_max, iy_max, x_max, y_max = min_in_polygon(r200, z200, (psi_int.T),
                                                          eq['rlim'], eq['zlim'],doplot=doplot)
-  print('maxind2',  max_val, ix_max, iy_max, x_max, y_max,rmaxis,zmaxis)
+  if dodebug: print('maxind2',  max_val, ix_max, iy_max, x_max, y_max,rmaxis,zmaxis)
   eq['rmaxis'] = x_max
 #  eq['zmaxis'] = y_max
   rmaxis=x_max #; zmaxis=y_max
-  print('axis',rmaxis,zmaxis)
   
   rB = np.linspace(min(R),max(R),B.shape[0])
   zB = np.linspace(min(R),max(R),B.shape[1])
@@ -209,11 +204,16 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
   #initial psimesh is [-psimin,0].
   #the following is only necessary if psimesh is not uniform which it should be for an eqdsk file.
 
-  sgnflux=1.0 #np.sign( -eq['simag']+eq['sibry']  )
+  sgnflux=np.sign( eq['simag']+eq['sibry']  )
+  if eq['simag']>eq['sibry'] :
+      print('Error, mapper requires increase poloidal flux, please convert to cocos%10=1,2,5,6 first')
+      exit
+
   if ifrhopol:
-    rhopol = np.sqrt(np.linspace( np.abs(eq['simag']),np.abs(eq['sibry'])*sepfrac,npsi)*sgnflux)
-    fity = rhopol**2*sgnflux #reference psipol consistent with uniform rhopol
-    rhopol = np.linspace(0,1,npsi)
+    sgnpsi = np.sign(np.linspace( eq['simag'],eq['sibry']*sepfrac,npsi))
+    rhopol = np.linspace( np.sqrt(np.abs(eq['simag'])),np.sqrt(np.abs(eq['sibry'])*sepfrac),npsi)
+    fity = rhopol**2*sgnpsi #values of flux space uniformly approx in space
+    rhopol = np.linspace(0,1,npsi) #rhopol is just 0,1 mesh uniform
     psimesh=fity
     eq['rhopolmap']=rhopol  #sqrt norm rho pol for map size npsi, linear spaced
   else:
@@ -224,7 +224,8 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
 
   eq['psipolmap'] = psimesh
   if dodebug: print('psimesh',psimesh)
-  if dodebug: print('psiaxis',eq.get('simag'))
+  if dodebug: print('rho sizes',len(psimesh),len(rhopol))
+  if dodebug: print('psiaxis',eq.get('simag'),eq.get('sibry'),sgnflux)
   c_pprime  = np.interp( psimesh, eq['fluxGrid'], eq['pprime'] )
   c_ffprime = np.interp( psimesh, eq['fluxGrid'], eq['ffprim'] )
   qmap      = np.interp( psimesh, eq['fluxGrid'], eq['qpsi']   )
@@ -258,6 +259,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
     for i,crvs in enumerate(psi_cs.allsegs):
       knds=psi_cs.allkinds[i]
       for j,crv in enumerate(crvs):
+#        print('crv',i,j,psi_cs.allsegs,crv)
         x,y=zip(*crv)
         knd=knds[j]
         hasaxis=Path(crv,knd).contains_point( (rmaxis,zmaxis)  ) 
@@ -304,7 +306,6 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
       filtered_cy=sft.ifft(ffty).real
 
       #interpolate |grad psi| and B onto this surface
-      #this *significantly* slows down this routine. 
 
       filtered_cx=cx ; filtered_cy=cy
       if jac=="straight":
@@ -326,7 +327,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
       #From G-S J_phi force balance equation
       c_area = integrate.simpson(
           dl/c_gradpsi
-      ) #this area is centered on the cell darea/dpsi
+      ) #this area is centered on the cell and is darea/dpsi
       area.append( c_area )
       curtor.append (c_curtor/c_area)  #make this d<Jphi>/dpsi
 
@@ -347,13 +348,14 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
   #add origin term
   #area.insert(0,0.)          #area of origin is 0.
   #curtor.insert(0,curtor[0]) #current density maximum at origin
-  #print('curtor size', len(curtor), len(area) )
+
   curtor=np.array(curtor)
   area=np.array(area)
   eq['darea']=area
   eq['Jtor']=curtor
 
-  #print('curtor size', len(curtor), len(area) )
+  if dodebug: print('curtor size', len(curtor), len(area),
+                    len(np.diff(eq['psipolmap'])), len(eq['psipolmap']),len(psixy) )
   #center_psimap=(( eq['psipolmap']+np.roll(eq['psipolmap'],1)  )/2)
   #Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor'],eq['darea'], initial=0)
   Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
@@ -387,6 +389,8 @@ def mapper(eqobj,jac='eqarc',maxmom=12,sepfrac=0.995,dodebug=False,doplot=False)
   eq['xmap']=Xmap
   eq['zmap']=Zmap
   eq['jac']=jac
+
+  if doplot: plot_equilibrium(eq)
   return eq
 
 
@@ -398,14 +402,15 @@ def plot_equilibrium(eq):
   fig.set_figheight(4)
 
   Xmap=eq['xmap'] ; Zmap=eq['zmap']
-  maxpsi=0.99
-  maxpsiind=int(maxpsi*Xmap.shape[0])
+
   #Theta lines
-  for i in np.arange(0,len(Xmap[0,:]),5):
-    ax.plot(Xmap[:maxpsiind,i],Zmap[:maxpsiind,i])
+  for i in np.arange(0,len(Xmap[0,:]),4):
+    ax.plot(Xmap[:,i],Zmap[:,i])
 
   #Psi surface
-  for i in np.arange(0,len(Xmap[:maxpsiind,0]),5):
-    ax.plot(Xmap[i,:],Zmap[i,:])
+  for i in np.arange(0,len(Xmap[:,0]),5):
+    ax.plot(np.append(Xmap[i,:],Xmap[i,0]), np.append(Zmap[i,:],Zmap[i,0]) )
+  ax.plot(np.append(Xmap[-1,:],Xmap[-1,0]), np.append(Zmap[-1,:],Zmap[-11,0]) )
+
   ax.set_title('Surfaces of constant theta and psi (every 5th)');
 

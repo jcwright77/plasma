@@ -361,7 +361,8 @@ def convert_cocos(eq,cocos_in=3,cocos_out=3):
     fluxfactor=1.0 ; sbp = +1.0 ; signpsi = 1.0
     if eq['cocos']>=11   : fluxfactor=2.*np.pi
     if eq['cocos']%10==3 : sbp=-1.0
-    if eq['cocos']%10==7 and decpsi: signpsi=-1.0 #make it increasing
+    if eq['cocos']%10 in [3,4,7] and decpsi: signpsi=-1.0 #make it increasing
+
     
     #need better treatment for case where q is not one sign
     if cocos_out%10 in [1,2,7,8] : eq['qpsi']=np.abs(eq['qpsi'])
