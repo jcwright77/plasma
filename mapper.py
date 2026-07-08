@@ -256,6 +256,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
         if np.abs(np.average(y))<0.05*rmaxis and np.abs(np.average(x))<0.10*rmaxis:
           psixy.append( (x,y) )
   else:
+    if dodebug: print('#segs', len(psi_cs.allsegs) ,len(psimesh) )
     for i,crvs in enumerate(psi_cs.allsegs):
       knds=psi_cs.allkinds[i]
       for j,crv in enumerate(crvs):
@@ -263,7 +264,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
         x,y=zip(*crv)
         knd=knds[j]
         hasaxis=Path(crv,knd).contains_point( (rmaxis,zmaxis)  ) 
-        if hasaxis:
+        if hasaxis: #this excludes the axis point
           psixy.append( (x,y) )
 
 
@@ -358,7 +359,10 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
                     len(np.diff(eq['psipolmap'])), len(eq['psipolmap']),len(psixy) )
   #center_psimap=(( eq['psipolmap']+np.roll(eq['psipolmap'],1)  )/2)
   #Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor'],eq['darea'], initial=0)
-  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
+#  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
+  #add origin pt
+  Ipsi=scipy.integrate.cumulative_trapezoid( np.concatenate( ([0],eq['Jtor']*eq['darea']) ),
+                                             eq['psipolmap'],initial=0)
 
   print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
   Ipsi_mod=Ipsi*eq['current']/Ipsi[-1] 
