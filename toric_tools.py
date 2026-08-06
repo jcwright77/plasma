@@ -18,9 +18,10 @@ def print_vector(nrep,fstr,a):
     Converts an array of numbers into a string formated by fstr with
     nrep values per line.
     """
-    n=a.size
+    aa=np.array(a)
+    n=aa.size
     pa=""
-    ta=a.reshape((a.size),order='F')
+    ta=aa.reshape(aa.size,order='F')
     for j in range(0,n,nrep):
         pa=pa+ "".join(map(lambda f: fstr % f, ta[j:min(j+nrep,n)]))+"\n"
     return pa
@@ -67,7 +68,6 @@ def get_spec_toric(toricnml):
     #print('spec',len(spec_toric),toricnml['equidata']['atm'],spec_toric)
     return spec_toric
 
-
 def write_profnt(fname,equidt):
     """
     Inputs:
@@ -95,61 +95,62 @@ def write_profnt(fname,equidt):
     f0005=ff.FortranRecordWriter('a32')
     f0006=ff.FortranRecordWriter('1e16.9')
     
-    with open(fname,'w') as of:
-        iatm=equidt['iatm']
-        iazi=equidt['iazi']
-        nspec=equidt['nspec']
-        mainsp=equidt['mainsp']
-        aconc=equidt['aconc']
-        nprodt=equidt['nprodt']
-        kdiff_itemp=equidt['kdiff_itemp']
-        kdiff_idens=equidt['kdiff_idens']
-        variantid=equidt['variant']
-        ion_temp=equidt['ion_temp']
-        of.write( f0001.write([variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp]) )
+    iatm=equidt['iatm']
+    iazi=equidt['iazi']
+    nspec=equidt['nspec']
+    mainsp=equidt['mainsp']
+    aconc=equidt['aconc']
+    nprodt=equidt['nprodt']
+    kdiff_itemp=equidt['kdiff_itemp']
+    kdiff_idens=equidt['kdiff_idens']
+    variantid=equidt['variant']
+    ion_temp=equidt['ion_temp']
+    
+    with open(fname,'w',encoding="utf-8") as of:
+        of.write( f0001.write([variantid,nprodt,nspec,mainsp,kdiff_idens,kdiff_itemp])+'\n' )
         if equidt['variant']=='Rfxqlo_Pro':
             rfxqlo_pro_variant = True
         else:
             rfxqlo_pro_variant = False
-
             
         for isp in range(nspec):
-             of.write( f0002.write( [iatm[isp],iazi[isp]] ) )
+             of.write( f0002.write( [iatm[isp],iazi[isp]] )+'\n' )
 
         for profile in keys: #write electron profiles
-            of.write( f0004.write( equidt[profile] ) )
+            of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
+            of.write( f0004.write( equidt[profile] ) +'\n')
 
              
-            #mainsp=1
-            #namelist['equidata']['mainsp']=mainsp
-            kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
-            kdiff_itemp=equidt['kdiff_itemp'] #0 #one ion temp
-            of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.
-            format('profnt_py', nprodt,nspec, mainsp,kdiff_idens,kdiff_itemp))
-            for isp in range(nspec):
-                of.write('{:4d}{:4d}\n'.
-                  format(int(equidt['iatm'][isp]),int(equidt['iazi'][isp])) )
-            profiles=['rhopro','tbne','tbte']
-            for profile in profiles:
-                of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
-                of.write(print_vector(5,'%16.9e',np.array(equidt[profile])))
+        #mainsp=1
+        #namelist['equidata']['mainsp']=mainsp
+        kdiff_idens=equidt['kdiff_idens'] #0 #specify concentrations
+        kdiff_itemp=equidt['kdiff_itemp'] #0 #one ion temp
+        #of.write('{:<10s}{:4d}{:4d}{:4d}{:4d}{:4d}\n'.
+        #         format('profnt_py', nprodt,nspec, mainsp,kdiff_idens,kdiff_itemp))
+        #for isp in range(nspec):
+        #    of.write('{:4d}{:4d}\n'.
+        #             format(int(equidt['iatm'][isp]),int(equidt['iazi'][isp])) )
+        #profiles=['rhopro','ne','te']
+        #for profile in profiles:
+        #    of.write('{:<10s}{:4d}\n'.format(profile, nprodt ))
+        #    of.write(print_vector(5,'%16.9e',np.array(equidt[profile])))
 
-            #write ion densities and temperatures
-            for isp in range(nspec):
-                if kdiff_idens==0:
-                    of.write('{:<10s}\n'.format('ni_conc'+str(isp)))
-                    of.write('%16.9e \n' % equidt['aconc'][isp])
-                else:
-                    of.write('{:<10s}\n'.format('tbni'+str(isp)))
-                    of.write(print_vector(5,'%16.9e',equidt['ni'][:,isp]))
+        #write ion densities and temperatures
+        for isp in range(nspec):
+            if kdiff_idens==0:
+                of.write('{:<10s}\n'.format('ni_conc'+str(isp)))
+                of.write('%16.9e \n' % equidt['aconc'][isp])
+            else:
+                of.write('{:<10s}\n'.format('tbni'+str(isp)))
+                of.write(print_vector(5,'%16.9e',equidt['ni'][:,isp]))
 
-                if kdiff_itemp==0 and isp==0:
-                    of.write('{:<10s}\n'.format('ion_temp') )
-                    of.write(print_vector(5,'%16.9e',equidt['ti_provv']))
+            if kdiff_itemp==0 and isp==0:
+                of.write('{:<10s}\n'.format('ion_temp') )
+                of.write(print_vector(5,'%16.9e',equidt['ion_temp']))
 
-                if kdiff_itemp==1:
-                    of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
-                    of.write(print_vector(5,'%16.9e',equidt['ti_provv'][:,isp]))
+            if kdiff_itemp==1:
+                of.write('{:<10s}\n'.format('ion_temp'+str(isp)) )
+                of.write(print_vector(5,'%16.9e',equidt['ion_temp'][:,isp]))
 
 
 def readArray(of,fmt,shp,nperline=5):
@@ -231,7 +232,7 @@ def read_equidt(filename,idebug=False):
                     ion_dens[:,isp]=readArray(of,f0004,[nprodt])
 
                 if kdiff_idens < 0:
-                    ion_dens[:,isp] *= profiles['ne']
+                    ion_dens[:,isp] = profiles['ne']  #*=
                 
                 if kdiff_idens == 0: #scalar concentrations used
                     [proname]=f0005.read(next(of))
@@ -741,7 +742,7 @@ class toric_analysis:
 
     def __init__ (self, toric_name='toric.ncdf', toric_data="toric.data",
                   mode='ICRF', idebug=False, comment='', layout='poster',
-                  path="./"):
+                  path="./",prefix=''):
         import socket
         from time import gmtime
 
@@ -758,13 +759,14 @@ class toric_analysis:
         self.set_layout(layout)
 
         self.path=path
+        self.prefix=prefix
 
         self.prov = {"user":"noname","host":"noname","gmtime":"notime","runid":"noid",
-                "path":"", "comment":""}
+                     "path":"", "prefix":self.prefix, "comment":""}
         self.label = True
         self.equigs = {}
         self.toricdict={}
-        self.nml=f90nml.read(os.path.join(path,'torica.inp') )
+        self.nml=f90nml.read(os.path.join(path,(prefix+'torica.inp') ))
 
         if (self.mode[:2]=='LH'):
             self.namemap={'xpsi':'tpsi','poynt':'vpoynt','pelec':'S_eld',
@@ -778,7 +780,7 @@ class toric_analysis:
 
 ##Open the toric netcdf file
         try:
-            self.cdf_hdl = netcdf_file(path+self.toric_name,mmap=False )
+            self.cdf_hdl = netcdf_file(path+self.prefix+self.toric_name,mmap=False )
             dvs = self.cdf_hdl.variables
         except IOError:
             print ('CRITICAL: ',self.toric_name,' not found.')
@@ -786,21 +788,28 @@ class toric_analysis:
             return 
 
         try:
-            self.qlde_hdl = netcdf_file(path+"toric_qlde.cdf",mmap=False)
+            self.qlde_hdl = netcdf_file(path+self.prefix+"toric_qlde.cdf",mmap=False)
         except IOError:
-            print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
+            print ('Non-CRITICAL: ',path+self.prefix+"toric_qlde.cdf",' not found.')
             self.qlde_hdl = None
 
+        self.data_hdl = None            
         try:
-            self.data_hdl = netcdf_file(path+self.toric_data,mmap=False )
-        except IOError:
-            print ('CRITICAL: ',self.toric_data,' not found.')
-            self.data_hdl = None
+            self.data_hdl = netcdf_file(path+self.prefix+self.toric_data,mmap=False )
+        except FileNotFoundError:
+            print ('CRITICAL: ',path+self.prefix+self.toric_data,' not found.')
+
+        try:
+            self.data_hdl = netcdf_file(path+self.prefix+'fort.9',mmap=False )
+        except FileNotFoundError:
+            print ('CRITICAL: ',path+self.prefix+'fort.9 not found')
+
 
         xx = dvs[self.namemap['xplasma']].data
-        nant=1
+
         self.nspec=self.nml['equidata'].get('nspec')
         if not self.nspec: print('Warning nspec not found in namelist')
+        nant = self.nml['toricainp'].get('nant')
 
         self.spec=self.get_spec()
         if self.data_hdl:
@@ -842,12 +851,12 @@ class toric_analysis:
         try:
             self.qlde_hdl.close()
         except IOError:
-            print ('Non-CRITICAL: ',path+"toric_qlde.cdf",' not found.')
+            print ('Non-CRITICAL: ',path+self.prefix+"toric_qlde.cdf",' not found.')
 
         try:
             self.data_hdl.close()
         except IOError:
-            print ('Non-CRITICAL: ',path+self.toric_data,' not found.')
+            print ('Non-CRITICAL: ',path+self.prefix+self.toric_data,' not found.')
 
         return
 
@@ -861,6 +870,7 @@ class toric_analysis:
                 print ('----------------------------------------------')
                 print ("The global attributes: ",self.cdf_hdl.dimensions.keys())
                 print ("File contains the variables: ", self.cdf_hdl.variables.keys())
+                print ("Antenna", self.antenna )
 
         if self.qlde_hdl:
             for hdl in [self.qlde_hdl]:
@@ -1380,13 +1390,15 @@ class toric_analysis:
         ant_it_height= int(sx*self.antenna['length']/2/
                            ( 2.*np.pi * self.antenna['radius'] ) )
 
-        ant_it_pos   =int(self.antenna['theta']*sx/360.)
-        r1=np.arange(  ant_it_pos, ant_it_pos+ant_it_height+1)%sx
-        r2=np.arange( (ant_it_pos-ant_it_height), (ant_it_pos+1))%sx
-        plt.plot(  xxx[ r1, self.antenna['ipsi'] ],
+        ant_it_pos   = (self.antenna['theta']*sx/360.).astype(int)
+
+        for ait in ant_it_pos:
+            r1=np.arange(  ait, ait+ant_it_height+1)%sx
+            r2=np.arange( (ait-ant_it_height), (ait+1))%sx
+            plt.plot(  xxx[ r1, self.antenna['ipsi'] ],
                    yyy[ r1, self.antenna['ipsi'] ],
                    'orange',linewidth=4 )
-        plt.plot(  xxx[ r2, self.antenna['ipsi'] ],
+            plt.plot(  xxx[ r2, self.antenna['ipsi'] ],
                    yyy[ r2, self.antenna['ipsi'] ],
                    'orange',linewidth=4 )
 
@@ -1394,7 +1406,7 @@ class toric_analysis:
                               ant_it_pos,ant_it_height,sx)
         if self.label:
             ax=plt.gca()
-            sublabel=self.prov['path']
+            sublabel=self.prov['path']+self.prefix
             if self.idebug: print ('sublabel: ',sublabel)
             plt.text(-0.2,-0.3,sublabel,transform = ax.transAxes,fontsize=4)
 

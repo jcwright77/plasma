@@ -1,8 +1,8 @@
+import numpy as np
+
 import scipy.integrate as integrate
 from scipy.interpolate import griddata
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
-import numpy as np
-#ensure periodicity with fft
 import scipy.fftpack as sft
 from scipy import integrate
 import scipy.interpolate
@@ -12,7 +12,10 @@ from plasma import  equilibrium_process as eqdsk
 import matplotlib.pyplot as plt
 import matplotlib
 from matplotlib.path import Path
+import matplotlib.patches as mpatches
 from packaging.version import Version
+
+import copy
 
 mu0=4.*np.pi*1.e-7
 def calcarea(x,y):
@@ -20,49 +23,140 @@ def calcarea(x,y):
     #y=vs[:,1]
     return 0.5*np.sum(y[:-1]*np.diff(x) - x[:-1]*np.diff(y))
 
-def mapper(eqobj,jac='eqarc'):
+
+def min_in_polygon(X, Y, Z, px, py, findmax=False, doplot=False):
+    """
+    Find the minimum value of a 2D field inside a polygon.
+ 
+    Parameters
+    ----------
+    X : array_like, shape (nx,)
+        1D x-coordinates of the rectangular mesh.
+    Y : array_like, shape (ny,)
+        1D y-coordinates of the rectangular mesh.
+    Z : array_like, shape (ny, nx)
+        2D field values; Z[iy, ix] corresponds to point (X[ix], Y[iy]).
+    px : array_like, shape (n,)
+        x-coordinates of the polygon vertices.
+    py : array_like, shape (n,)
+        y-coordinates of the polygon vertices.
+ 
+    Returns
+    -------
+    max_val : float
+        Maximum value of Z inside the polygon.
+    ix_max : int
+        Column index (into X) of the maximum.
+    iy_max : int
+        Row index (into Y) of the maximum.
+    x_max : float
+        x-coordinate of the maximum.
+    y_max : float
+        y-coordinate of the maximum.
+ 
+    Raises
+    ------
+    ValueError
+        If no mesh points fall inside the polygon.
+    """
+    X = np.asarray(X, dtype=float)
+    Y = np.asarray(Y, dtype=float)
+    Z = np.asarray(Z, dtype=float)
+    px = np.asarray(px, dtype=float)
+    py = np.asarray(py, dtype=float)
+ 
+    if Z.shape != (len(Y), len(X)):
+        raise ValueError(
+            f"Z shape {Z.shape} does not match (len(Y), len(X)) = ({len(Y)}, {len(X)})"
+        )
+ 
+    # --- Build the polygon path (auto-close) ----------------------------
+    # matplotlib Path expects the polygon to be explicitly closed
+    verts = np.column_stack([px, py])
+    if not np.array_equal(verts[0], verts[-1]):
+        verts = np.vstack([verts, verts[0]])  # close the ring
+    poly = Path(verts)
+ 
+    # --- Create a grid of all mesh points --------------------------------
+    # Meshgrid: XX[iy, ix] = X[ix], YY[iy, ix] = Y[iy]
+    XX, YY = np.meshgrid(X, Y)              # both shape (ny, nx)
+    points = np.column_stack([XX.ravel(), YY.ravel()])  # shape (ny*nx, 2)
+ 
+    # --- Mask: True where the point is inside the polygon ----------------
+    inside = poly.contains_points(points)   # shape (ny*nx,)
+    inside_2d = inside.reshape(Z.shape)     # shape (ny, nx)
+ 
+    if not inside_2d.any():
+        raise ValueError("No mesh points found inside the polygon.")
+ 
+    # --- Masked array and argmax -----------------------------------------
+    if findmax:
+        Z_masked = np.where(inside_2d, Z, -np.inf)
+        flat_idx  = np.argmax(Z_masked)
+    else:
+        Z_masked = np.where(inside_2d, Z, +np.inf)
+        flat_idx  = np.argmin(Z_masked)
+    iy_max, ix_max = np.unravel_index(flat_idx, Z.shape)
+ 
+    max_val = Z[iy_max, ix_max]
+    x_max   = X[ix_max]
+    y_max   = Y[iy_max]
+
+    if doplot:
+        fig, ax = plt.subplots(figsize=(7, 6))
+        c = ax.contour(X, Y, Z, levels=40, cmap="viridis")
+        fig.colorbar(c, ax=ax, label="Z value")
+        ax.set_aspect('equal')
+ 
+        poly_closed = np.append(px, px[0]), np.append(py, py[0])
+        ax.plot(*poly_closed, "k-", lw=2, label="Polygon")
+        ax.plot(x_max, y_max, "r*", markersize=18, label=f"Max = {max_val:.3f}")
+ 
+        ax.set_title("Minimum in 2-D field inside polygon")
+        ax.legend(loc="upper left")
+        plt.tight_layout()
+        
+    return max_val, ix_max, iy_max, x_max, y_max
+ 
+ 
+def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
+           sepfrac=0.98,dodebug=False,doplot=False,ifrhopol=True):
   """
     mapper calculates a r,theta cooridinate system within the last closed
     flux surface
     eqfile: filename of geqdesk file or dictionary of values from geqdsk file
     jac: 'straight' or 'eqarc' 
 
-    returnx Xmap,Zmap on r,theta grid
+    returns Xmap,Zmap on r,theta grid
   """
       
-  dodebug=False #True
-  sepfrac=0.995  
-  #print("type",str(type(eqobj)))
   if isinstance(eqobj,str):
     eq=eqdsk.readGEQDSK(eqobj)[0]
   elif isinstance(eqobj,dict):
-    eq=eqobj
+    eq=copy.deepcopy(eqobj)
   else:
     return "Unrecognized equilibrium object, must be filename or dictionary"
 
   R=eq.get('r')
-  Z=eq.get('z')-eq['zmaxis']  #axis needs to be at z=0 for mapping
+  Z=eq.get('z')#-eq['zmaxis']  #axis needs to be at z=0 for mapping
   B,grad_psi,fRZ,Rv,Zv,Bv=eqdsk.getModB(eq)
   psi=eq.get('psizr').T
   curtor=[]
   area=[]
   mapzmaxis=float(0.0)
-  ifrhopol=True #False #use root psipol mesh instead of psipol (eg for torlh)
 
 
-  def find_cut(x,y, rmaxis, zmaxis):
-    #adapted from S. Shiraiwai to find crossing going counter clockwise
+  def find_cut(x,y, rm, zm):
+    #adapted from S. Shiraiwa to find crossing going counter clockwise
     for k in range(len(y)-1):
       km = k-1
-      if y[km] < zmaxis and y[k] > zmaxis:
+      if y[km] < zm and y[k] > zm:
         return k
     return -1
 
-
-  nsample=1200  
-  r200=np.linspace(min(R),max(R),1200)
-  z200=np.linspace(min(Z),max(Z),1200)
-  RR,ZZ=np.mgrid [min(R):max(R):1200j, min(Z):max(Z):1200j ]
+  r200=np.linspace(min(R),max(R),nsample)
+  z200=np.linspace(min(Z),max(Z),nsample)
+  RR,ZZ=np.mgrid [min(R):max(R):np.complex64(0,nsample), min(Z):max(Z):np.complex64(0,nsample) ]
 
   spline_psi = scipy.interpolate.RectBivariateSpline(R,Z,psi.T,bbox=[np.min(R),
                                       np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
@@ -71,10 +165,32 @@ def mapper(eqobj,jac='eqarc'):
   psi_int_z=spline_psi.ev(RR,ZZ,dy=1)
   grad_psi=np.sqrt(psi_int_z**2+psi_int_r**2)
 
-  #generated mapped mesh size:
-  npsi=80
-  ntheta=128
 
+#Define uniform theta mesh
+  uni_theta=np.linspace(0,2.0*np.pi,ntheta,endpoint=False)
+
+#Set up X(psi,theta) Y(psi,theta) and initialize with magnetic axis point
+  eq_x=[]
+  eq_y=[]
+
+  rmaxis = eq['rmaxis']
+  zmaxis = eq['zmaxis']
+  
+  spline_gpsi = scipy.interpolate.RectBivariateSpline(r200,z200,grad_psi)
+  
+  #check axis position
+  max_val, ix_max, iy_max, x_max, y_max = min_in_polygon(r200, z200, (psi_int.T),
+                                                         eq['rlim'], eq['zlim'],doplot=doplot)
+  if dodebug: print('maxind2',  max_val, ix_max, iy_max, x_max, y_max,rmaxis,zmaxis)
+  eq['rmaxis'] = x_max
+#  eq['zmaxis'] = y_max
+  rmaxis=x_max #; zmaxis=y_max
+  
+  rB = np.linspace(min(R),max(R),B.shape[0])
+  zB = np.linspace(min(R),max(R),B.shape[1])
+  spline_B = scipy.interpolate.RectBivariateSpline(rB,zB,B)
+
+  
   #we will have eq_theta at each filtered_cx,cy
   #like polar contour needed to be converted to regular mesh
 
@@ -88,12 +204,16 @@ def mapper(eqobj,jac='eqarc'):
   #initial psimesh is [-psimin,0].
   #the following is only necessary if psimesh is not uniform which it should be for an eqdsk file.
 
-  #nidx=100
-  sgnflux=np.sign(  eq['simag']+eq['sibry']  )
+  sgnflux=np.sign( eq['simag']+eq['sibry']  )
+  if eq['simag']>eq['sibry'] :
+      print('Error, mapper requires increase poloidal flux, please convert to cocos%10=1,2,5,6 first')
+      exit
+
   if ifrhopol:
-    rhopol = np.sqrt(np.linspace( np.abs(eq['simag']),np.abs(eq['sibry'])*sepfrac,npsi)*sgnflux)
-    fity = rhopol**2*sgnflux #reference psipol consistent with uniform rhopol
-    rhopol = np.linspace(0,1,npsi)
+    sgnpsi = np.sign(np.linspace( eq['simag'],eq['sibry']*sepfrac,npsi))
+    rhopol = np.linspace( np.sqrt(np.abs(eq['simag'])),np.sqrt(np.abs(eq['sibry'])*sepfrac),npsi)
+    fity = rhopol**2*sgnpsi #values of flux space uniformly approx in space
+    rhopol = np.linspace(0,1,npsi) #rhopol is just 0,1 mesh uniform
     psimesh=fity
     eq['rhopolmap']=rhopol  #sqrt norm rho pol for map size npsi, linear spaced
   else:
@@ -101,11 +221,11 @@ def mapper(eqobj,jac='eqarc'):
     eq['rhopolmap']=np.sqrt(np.linspace(0.,sepfrac,npsi))
     rhopol = np.linspace(0,1,npsi)
 
-  rmaxis = eq['rmaxis']
-  zmaxis = mapzmaxis #eq['zmaxis']
+
   eq['psipolmap'] = psimesh
   if dodebug: print('psimesh',psimesh)
-  if dodebug: print('psiaxis',eq.get('simag'))
+  if dodebug: print('rho sizes',len(psimesh),len(rhopol))
+  if dodebug: print('psiaxis',eq.get('simag'),eq.get('sibry'),sgnflux)
   c_pprime  = np.interp( psimesh, eq['fluxGrid'], eq['pprime'] )
   c_ffprime = np.interp( psimesh, eq['fluxGrid'], eq['ffprim'] )
   qmap      = np.interp( psimesh, eq['fluxGrid'], eq['qpsi']   )
@@ -132,45 +252,31 @@ def mapper(eqobj,jac='eqarc'):
         v = pp.vertices
         x = v[:,0]
         y = v[:,1]
-        if np.abs(np.average(y))<0.10*eq['rmaxis'] and np.abs(np.average(x))<0.10*eq['rmaxis']: #only keep core plasma contours
+        #only keep core plasma contours
+        if np.abs(np.average(y))<0.05*rmaxis and np.abs(np.average(x))<0.10*rmaxis:
           psixy.append( (x,y) )
   else:
+    if dodebug: print('#segs', len(psi_cs.allsegs) ,len(psimesh) )
     for i,crvs in enumerate(psi_cs.allsegs):
       knds=psi_cs.allkinds[i]
       for j,crv in enumerate(crvs):
+#        print('crv',i,j,psi_cs.allsegs,crv)
         x,y=zip(*crv)
         knd=knds[j]
-        hasaxis=Path(crv,knd).contains_point( (eq['rmaxis'],eq['zmaxis'])  )      
-        if hasaxis:
+        hasaxis=Path(crv,knd).contains_point( (rmaxis,zmaxis)  ) 
+        if hasaxis: #this excludes the axis point
           psixy.append( (x,y) )
 
 
-#Define uniform theta mesh
-  uni_theta=np.linspace(0,2.0*np.pi,ntheta,endpoint=False)
-
-#Set up X(psi,theta) Y(psi,theta) and initialize with magnetic axis point
-  eq_x=[]
-  eq_y=[]
-
-#  print('grad psi, B shapes', grad_psi.shape, B.shape)
-  #points = np.array( (RR.flatten(), ZZ.flatten()) ).T
-  gpsivalues = grad_psi.flatten()
-  spline_psi = scipy.interpolate.RectBivariateSpline(r200,z200,grad_psi)
-  #Bpoints = np.array( (RR.flatten(), ZZ.flatten()) ).T
-  Bvalues   = B.flatten()
-  rB = np.linspace(min(R),max(R),B.shape[0])
-  zB = np.linspace(min(R),max(R),B.shape[1])
-  spline_B = scipy.interpolate.RectBivariateSpline(rB,zB,B)
-
   minmodes = 5
-  maxmodes = 12
+  maxmodes = maxmom
   area1=0.
   area2=0.  
   for c_idx,(cx,cy) in enumerate(psixy):
       #for each surface, low pass filter to central 8+ DC Fourier modes
       #remove last element for fft since it is equal to the first element
       #size of (cx,cy) is  variable
-      #print('cx',c_idx, len(cx),len(cy),len(psixy),len(psixy[0]),psimesh[c_idx]) #just to see progress
+
       area1=area2
       area2=calcarea(cx,cy)
       #shift to midplane as first element
@@ -183,7 +289,7 @@ def mapper(eqobj,jac='eqarc'):
           cy=0.5*(np.roll(cy,-idx)+np.roll(cy,-idx+1))
 
       #filter out high freq noise, esp needed near axis
-      nmodes=max( minmodes,int(len(cx)/float(maxmodes) ))
+      nmodes=max( minmodes,int(len(cx)/float(maxmodes)/8. ))
       if dodebug: print('c_index,nmodes',c_idx,nmodes)
 
       fftx=sft.fft(cx)
@@ -201,13 +307,12 @@ def mapper(eqobj,jac='eqarc'):
       filtered_cy=sft.ifft(ffty).real
 
       #interpolate |grad psi| and B onto this surface
-      #this *significantly* slows down this routine. 
 
-      # filtered_cx=cx ; filtered_cy=cy
+      filtered_cx=cx ; filtered_cy=cy
       if jac=="straight":
           c_B  = spline_B.ev(filtered_cx,filtered_cy)
 
-      c_gradpsi  = spline_psi.ev(filtered_cx,filtered_cy)
+      c_gradpsi  = spline_gpsi.ev(filtered_cx,filtered_cy)
       
       #derivative from fft needs factor of 2pi
       df_dx=sft.diff(filtered_cx)*np.pi*2.0/len(filtered_cx)
@@ -223,7 +328,7 @@ def mapper(eqobj,jac='eqarc'):
       #From G-S J_phi force balance equation
       c_area = integrate.simpson(
           dl/c_gradpsi
-      ) #this area is centered on the cell darea/dpsi
+      ) #this area is centered on the cell and is darea/dpsi
       area.append( c_area )
       curtor.append (c_curtor/c_area)  #make this d<Jphi>/dpsi
 
@@ -244,16 +349,20 @@ def mapper(eqobj,jac='eqarc'):
   #add origin term
   #area.insert(0,0.)          #area of origin is 0.
   #curtor.insert(0,curtor[0]) #current density maximum at origin
-  #print('curtor size', len(curtor), len(area) )
+
   curtor=np.array(curtor)
   area=np.array(area)
   eq['darea']=area
   eq['Jtor']=curtor
 
-  #print('curtor size', len(curtor), len(area) )
+  if dodebug: print('curtor size', len(curtor), len(area),
+                    len(np.diff(eq['psipolmap'])), len(eq['psipolmap']),len(psixy) )
   #center_psimap=(( eq['psipolmap']+np.roll(eq['psipolmap'],1)  )/2)
   #Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor'],eq['darea'], initial=0)
-  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
+#  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
+  #add origin pt
+  Ipsi=scipy.integrate.cumulative_trapezoid( np.concatenate( ([0],eq['Jtor']*eq['darea']) ),
+                                             eq['psipolmap'],initial=0)
 
   print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
   Ipsi_mod=Ipsi*eq['current']/Ipsi[-1] 
@@ -269,34 +378,23 @@ def mapper(eqobj,jac='eqarc'):
   #add origin
   NXmap=np.zeros([npsi,ntheta])
   NZmap=np.zeros([npsi,ntheta])
-  #print('Xmap',Xmap.shape,NXmap.shape,len(eq_x))
-  zax,rax=np.average((Zmap[0,:]-mapzmaxis)),np.average((Xmap[0,:]))
-  NZmap[0,:]= 0.0
-  #NZmap= NZmap - zax
-  NXmap[0,:]=rax #eq['zmaxis']
+
+  
+  NZmap[0,:]= zmaxis #could be vertically shifted
+  NXmap[0,:]= rmaxis
   NXmap[1:,:]=Xmap
   NZmap[1:,:]=Zmap
 
-  print("Error or shift of vertical axis from zero is",
-        np.average((Zmap[0,:]-mapzmaxis)),np.average((Xmap[0,:])),
-        eq['zmaxis'],eq['rmaxis']
-       )
-  print(Zmap[0,:],mapzmaxis)
-  print("Error or shift of vertical axis from zero is",
-        np.average((Zmap[1,:]-mapzmaxis)),np.average((Xmap[1,:])),
-        eq['zmaxis'],eq['rmaxis']
-       )
   del(Xmap)
   del(Zmap)
   Xmap=NXmap
   Zmap=NZmap
-  #Zmap[0,0]=np.double(0.0)
 
-  print('shapes of mapped arrays: ',Xmap.shape,Zmap.shape)
-  #save this in pickle file
   eq['xmap']=Xmap
   eq['zmap']=Zmap
   eq['jac']=jac
+
+  if doplot: plot_equilibrium(eq)
   return eq
 
 
@@ -308,13 +406,15 @@ def plot_equilibrium(eq):
   fig.set_figheight(4)
 
   Xmap=eq['xmap'] ; Zmap=eq['zmap']
-  maxpsi=0.995
-  maxpsiind=int(maxpsi*Xmap.shape[0])
+
   #Theta lines
-  for i in np.arange(0,len(Xmap[0,:]),5):
-    ax.plot(Xmap[:maxpsiind,i],Zmap[:maxpsiind,i])
+  for i in np.arange(0,len(Xmap[0,:]),4):
+    ax.plot(Xmap[:,i],Zmap[:,i])
 
   #Psi surface
-  for i in np.arange(0,len(Xmap[:maxpsiind,0]),5):
-    ax.plot(Xmap[i,:],Zmap[i,:])
-  ax.set_title('Surfaces of constant theta and psi (every 10th)');
+  for i in np.arange(0,len(Xmap[:,0]),5):
+    ax.plot(np.append(Xmap[i,:],Xmap[i,0]), np.append(Zmap[i,:],Zmap[i,0]) )
+  ax.plot(np.append(Xmap[-1,:],Xmap[-1,0]), np.append(Zmap[-1,:],Zmap[-11,0]) )
+
+  ax.set_title('Surfaces of constant theta and psi (every 5th)');
+
