@@ -17,8 +17,8 @@ class cql3d:
 
     cqlname='undefined'
     cqlrfname='undefined'
-    cqlhdl=0
-    cqlrfhdl=0
+    cqlhdl=None
+    cqlrfhdl=None
     cqldict={}
 
     def __init__(self, cqlroot):
@@ -35,7 +35,7 @@ class cql3d:
             self.cqlrfhdl = nc.netcdf_file(self.cqlrfname,'r')
         except IOError:
             print (self.cqlrfname,'not found, relevant fns disabled.')
-            self.cqlrfhdl = -1
+            self.cqlrfhdl = False
         return
     
     def info( self ):
@@ -54,7 +54,7 @@ class cql3d:
             print(str(f.long_name,'utf-8'))
             print(str(f.units,'utf-8'))
             for d in f.dimensions:
-                print(d,F.cqlhdl.dimensions[d])
+                print(d,f.cqlhdl.dimensions[d])
 
             print('Normalization vnorm/c = %10.4e' % (self.cqlhdl.variables['vnorm'].getValue()/ccm))
             print('Normalization enorm = %10.4e' % self.cqlhdl.variables['enorm'].getValue(),
@@ -65,7 +65,7 @@ class cql3d:
             print("CQL betas ", np.round(beta0cql,2))
             print("-"*80)
             
-        if (self.cqlrfhdl != -1):
+        if (self.cqlrfhdl)
             print ('The cql file, ',self.cqlrfname,', contains:')
             print ('----------------------------------')
             print ("The global attributes: ",self.cqlrfhdl.dimensions.keys())
@@ -86,16 +86,19 @@ class cql3d:
     def tplot( self, irad=-2, itime=None, species=None, fig=None, var=None, ptype='contour' ):
         figscale=3 #scale up figure (1 in height originally)
 
+        f=None
         if var==None or var=='f':
             f     = self.cqlhdl.variables['f']
 
-        if var=='B':
+        if var=='B' and cqlrfhdl:
             f=self.cqlrfhdl.variables['rdcb']
 
-        if var=='rayB':
+        if var=='rayB' and cqlrfhdl:
             f=self.cqlrfhdl.variables['urfb']
 
-
+        if not f:
+            return
+        
         u     = self.cqlhdl.variables['x'][:]
         pitch = self.cqlhdl.variables['y'][:]
         rya   = self.cqlhdl.variables['rya'][:]
@@ -259,17 +262,22 @@ class cql3d:
 
         return fig
     
-    def fplot_contour(self,idx,species=0,crange=[10,16],nlev=20):
+    def fplot_contour(self,ir,species=None,crange=[10,16],nlev=20):
         from matplotlib import patches
         import matplotlib.pyplot as plt
 
         fdist = self.cqlhdl.variables['f']
         u     = self.cqlhdl.variables['x'][:]
         pitch = self.cqlhdl.variables['y'][:]
-        r,t = np.meshgrid(u,pitch[idx,:]) #important to have idx
+        r,t = np.meshgrid(u,pitch[ir,:]) #important to have ir in pitch
         vpar0  = np.transpose(r*np.cos(t))
         vperp0 = np.transpose(r*np.sin(t))
-        plt.contour(vpar0,vperp0,np.log10(fdist[species,idx,:,:]+1),np.linspace(crange[0],
+
+        if species:
+            ff=fdist[species,ir,:,:]
+        else:
+            ff=fdist[ir,:,:]
+        plt.contour(vpar0,vperp0,np.log10(ff+1),np.linspace(crange[0],
                                                             crange[1],nlev));
         plt.colorbar();
 

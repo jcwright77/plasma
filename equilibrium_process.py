@@ -53,6 +53,7 @@
 # ZBBBS: Z of boundary points in meter                                 - ZBND
 # RLIM: R of surrounding limiter contour in meter                      - RLIM
 # ZLIM: Z of surrounding limiter contour in meter                      - ZLIM
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -257,6 +258,11 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=0,
         return np.reshape(np.array(vals[0:N]),shp)
 
 
+    try:
+        f = open(fname,'r')
+    except FileNotFoundError:
+        print('error, FileNotFound')
+        
     with open(fname, "r") as fh:
         [casestr, idum, nw, nh]            = f2000.read(next(fh))
         [rdim,zdim,rcentr,rleft,zmid]      = f2020.read(next(fh))
@@ -342,34 +348,96 @@ def readGEQDSK2(filename='eqdsk.dat', dointerior=False, width=9, cocos=0,
              'ffprim':ffprim, 'pprime':pprime, 'psizr':psizr, 'qpsi':qpsi, 'rbbbs':rbbbs,
              'zbbbs':zbbbs, 'rlim':rlim, 'zlim':zlim, 'r':r, 'z':z, 'psirz':psizr.T,
              'fluxGrid':fluxGrid, 'cocos':cocos, 'name':fname}
-    
 
     if cocos==0: eqdsk['cocos'] = get_cocos(eqdsk)
     
     return eqdsk,fig
 
 
-def get_cocos(eq):
-    return 3
+def q_on_axis(eq):
+    """
+    psirz: 2D array (nz, nr) of poloidal flux, EQDSK convention
+    R, Z : 1D grid vectors
+    rmaxis, zmaxis: magnetic axis location
+    fpol: fpol array (uniform psi grid, axis -> boundary); fpol[0] = F0
+    """
+
+    R=eq.get('r') ; Z=eq.get('z') ; psirz=eq['psirz']
+    rmaxis = eq['rmaxis'] ; zmaxis = eq['zmaxis']
+    iR = np.argmin(np.abs(R - rmaxis))
+    iZ = np.argmin(np.abs(Z - zmaxis))
+
+    # centered 2nd derivatives (finite difference)
+    dR = R[1] - R[0] ; dZ = Z[1] - Z[0]
+    psi_RR = (psirz[iZ, iR+1] - 2*psirz[iZ, iR] + psirz[iZ, iR-1]) / dR**2
+    psi_ZZ = (psirz[iZ+1, iR] - 2*psirz[iZ, iR] + psirz[iZ-1, iR]) / dZ**2
+
+    F0 = eq['fpol'][0]
+    q0 = F0 / (rmaxis * np.sqrt(psi_RR * psi_ZZ))
+    return q0
 
 
-def convert_cocos(eq,cocos_in=3,cocos_out=3):
+def get_cocos(eqobj):
+    if isinstance(eqobj,str):
+        eq=readGEQDSK2(eqobj,cocos=-1)[0]
+    elif isinstance(eqobj,dict):
+        eq=copy.deepcopy(eqobj)
+    else:
+        return "Unrecognized equilibrium object, must be filename or dictionary"
+
+    print("Diagnostics of raw eqdsk to determine COCOS number.")
+    for key in  ['current', 'bcentr', 'fpol', 'qpsi']:
+        val = eq.get(key)
+        if key in eq:
+            if isinstance(val, (list,tuple,np.ndarray))>0:val=val[0]
+            val=float(val)
+        else:
+            print('key', key, 'not found')
+        sign = "Positive" if val > 0 else "Negative" if val < 0 else "Zero"
+        print(key,':', "{:10.2f}".format(val), 'is', sign)
+
+    print('dp/dpsi[5]',eq['pprime'][5]/eq['pres'][5])
+    if eq.get('simag')>eq.get('sibry'):
+        print("Psi is decreasing")
+    else:
+        print("Psi is increasing")
+    print(eq['simag'],eq['sibry'])
+    print('q on axis from psi curvature:', "{:10.4f}".format(q_on_axis(eq)),
+          '. Ratio: ',  "{:10.4f}".format(eq['qpsi'][0]/q_on_axis(eq) ))
+
+    BB = getModB(eq,rdict=True)
+    R=eq.get('r') ; Z=eq.get('z') ;  psirz=eq['psizr']   
+    iZ = np.argmin(np.abs(Z - eq['zmaxis']))    
+    iR2 = int(len(R)/2.)
+   # print('Psi midplane', np.abs(psirz[iR2:,iZ] - eq['sibry']) )
+    iR = np.argmin(np.abs(psirz[iR2:,iZ] - eq['sibry']))-1+iR2
+#    print('BZ(a)', iR,iZ,R[iR],Z[iZ],'xx',psirz[iR,iZ],eq['sibry'],
+#          'xx',BB['BZ'][iR,iZ])
+    print('BZ(a),BR(a)', BB['BZ'][iR,iZ],BB['BR'][iR,iZ])
+          
+    return 1
+
+
+def convert_cocos(eqin,cocos_in=3,cocos_out=3):
     """ In progress. Convert to coco1 then to cocos_out"""
+    eq=copy.deepcopy(eqin)
     if cocos_in==cocos_out: return eq
 
     decpsi= (eq['sibry']<eq['simag'])
     fluxfactor=1.0 ; sbp = +1.0 ; signpsi = 1.0
     if eq['cocos']>=11   : fluxfactor=2.*np.pi
     if eq['cocos']%10==3 : sbp=-1.0
-    if eq['cocos']%10 in [3,4,7] and decpsi: signpsi=-1.0 #make it increasing
+    if eq['cocos']%10 in [3,4,7,8] and decpsi: signpsi=-1.0 #make it increasing
 
     
     #need better treatment for case where q is not one sign
-    if cocos_out%10 in [1,2,7,8] : eq['qpsi']=np.abs(eq['qpsi'])
+    if cocos_out%10 in [3,4,5,6] : eq['qpsi']=np.abs(eq['qpsi'])
     eq['fluxGrid']*=(1./fluxfactor)
     eq['psizr']*=(1./fluxfactor)*signpsi
+    eq['psirz']*=(1./fluxfactor)*signpsi    
     eq['sibry']*=(1./fluxfactor)*signpsi
     eq['simag']*=(1./fluxfactor)*signpsi
+    eq['fluxGrid']*=signpsi
     eq['cocos']=1
     return eq
 
@@ -391,7 +459,7 @@ def getModB(eq,rdict=False):
     #poloidal component. for cocos=[3] or 1/11 (R,phi,Z)
     fluxfactor=1.0 ; sbp = +1.0
     if eq['cocos']>=11   : fluxfactor=2.*np.pi
-    if eq['cocos']%10==3 : sbp=-1.0
+    if eq['cocos']%10 in [3,7,8] : sbp=-1.0
 
     R=eq.get('r')
     Z=eq.get('z')
@@ -400,8 +468,7 @@ def getModB(eq,rdict=False):
     psiZR=eq.get('psizr')
 
     spline_psi = interpolate.RectBivariateSpline(R,Z,psiZR,
-                                                 bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],
-                                                 kx=5,ky=5)
+                    bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)], kx=5,ky=5)
     psi_int_r=spline_psi.ev(Rv,Zv,dx=1)/fluxfactor
     psi_int_z=spline_psi.ev(Rv,Zv,dy=1)/fluxfactor
     grad_psi=np.sqrt(psi_int_z**2+psi_int_r**2)
@@ -447,7 +514,8 @@ def getModB(eq,rdict=False):
     Bv = (BR,Bphi,BZ)
 #    BV=( +sbp*psi_int_z/Rv, fpolRZ/Rv, -sbp*psi_int_r/Rv) #R,phi,Z for cocos1/11 and 3/13
     #Add components
-    if rdict:  return {'modB':modB,'grad_psi':grad_psi,'fpolRZ':fpolRZ,'Rv':Rv,'Zv':Zv,'Bv':Bv}
+    if rdict:  return {'modB':modB,'grad_psi':grad_psi,'fpolRZ':fpolRZ,
+                       'Rv':Rv,'Zv':Zv,'Bv':Bv, 'BR':BR, 'BZ':BZ, 'Bphi':Bphi}
     return modB,grad_psi,fpolRZ,Rv,Zv,Bv
 
 
@@ -504,6 +572,7 @@ def plotEQDSK(eq,asp=1.0):
     ax2.set_aspect(asp)
 
     ax3.set_title('Profiles')
+    ax3.set_xlim(eq['simag'],eq['sibry'])
     if eq['ffprim'][0]>0:
         ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], 'o', label="FF' norm")
     ax3.plot(eq['fluxGrid'], eq['qpsi'],                   label='q')
