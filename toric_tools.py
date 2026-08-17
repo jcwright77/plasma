@@ -158,7 +158,7 @@ def readArray(of,fmt,shp,nperline=5):
     if len(shp)==1: N=shp[0]
     if len(shp)==2: N=shp[0]*shp[1]
     nlines = int(N/nperpline)
-    if (N%nperpline)!=0: nlines+=1
+    if (N%nperline)!=0: nlines+=1
     for i in range( nlines ):
         vals.extend(fmt.read(next(of)))
     return np.reshape(np.array(vals[0:N]),shp)

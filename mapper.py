@@ -119,7 +119,7 @@ def min_in_polygon(X, Y, Z, px, py, findmax=False, doplot=False):
     return max_val, ix_max, iy_max, x_max, y_max
  
  
-def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
+def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
            sepfrac=0.98,dodebug=False,doplot=False,ifrhopol=True):
   """
     mapper calculates a r,theta cooridinate system within the last closed
@@ -264,7 +264,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
         x,y=zip(*crv)
         knd=knds[j]
         hasaxis=Path(crv,knd).contains_point( (rmaxis,zmaxis)  ) 
-        if hasaxis: #this excludes the axis point
+        if hasaxis: #this includes the axis point in contour
           psixy.append( (x,y) )
 
 
@@ -354,15 +354,16 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
   area=np.array(area)
   eq['darea']=area
   eq['Jtor']=curtor
-
-  if dodebug: print('curtor size', len(curtor), len(area),
+  midpsimap= (eq['psipolmap'][1:] + eq['psipolmap'][:-1])/2
+  
+  if dodebug: print('curtor size', len(curtor), len(area), len(midpsimap),
                     len(np.diff(eq['psipolmap'])), len(eq['psipolmap']),len(psixy) )
   #center_psimap=(( eq['psipolmap']+np.roll(eq['psipolmap'],1)  )/2)
   #Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor'],eq['darea'], initial=0)
 #  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
   #add origin pt
-  Ipsi=scipy.integrate.cumulative_trapezoid( np.concatenate( ([0],eq['Jtor']*eq['darea']) ),
-                                             eq['psipolmap'],initial=0)
+
+  Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor']*eq['darea'], midpsimap,initial=0)
 
   print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
   Ipsi_mod=Ipsi*eq['current']/Ipsi[-1] 
@@ -378,7 +379,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
   #add origin
   NXmap=np.zeros([npsi,ntheta])
   NZmap=np.zeros([npsi,ntheta])
-
+  if dodebug: print('Xmap shape',Xmap.shape,NXmap.shape)
   
   NZmap[0,:]= zmaxis #could be vertically shifted
   NXmap[0,:]= rmaxis
@@ -393,7 +394,8 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=80, ntheta=128, nsample=600,
   eq['xmap']=Xmap
   eq['zmap']=Zmap
   eq['jac']=jac
-
+  eq['maxpsi']=sepfrac
+  
   if doplot: plot_equilibrium(eq)
   return eq
 
