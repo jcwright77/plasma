@@ -209,16 +209,19 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
       print('Error, mapper requires increase poloidal flux, please convert to cocos%10=1,2,5,6 first')
       exit
 
-  if ifrhopol:
-    sgnpsi = np.sign(np.linspace( eq['simag'],eq['sibry']*sepfrac,npsi))
-    rhopol = np.linspace( np.sqrt(np.abs(eq['simag'])),np.sqrt(np.abs(eq['sibry'])*sepfrac),npsi)
+  dpsi=(eq['sibry']-eq['simag'])/(npsi-2.)
+  simax=(eq['sibry']-eq['simag'])*sepfrac+eq['simag']
+  simin=eq['simag']+dpsi
+  if ifrhopol:  #su btract 1 from npsi to add origin later but not try to contour it
+    sgnpsi = np.sign(np.linspace( simin,simax,npsi-1) )
+    rhopol = np.linspace( np.sqrt(np.abs(simin)),np.sqrt(np.abs(simax) ),npsi-1)
     fity = rhopol**2*sgnpsi #values of flux space uniformly approx in space
     rhopol = np.linspace(0,1,npsi) #rhopol is just 0,1 mesh uniform
     psimesh=fity
     eq['rhopolmap']=rhopol  #sqrt norm rho pol for map size npsi, linear spaced
   else:
-    psimesh=np.linspace(eq['simag'],eq['sibry']*sepfrac,npsi)
-    eq['rhopolmap']=np.sqrt(np.linspace(0.,sepfrac,npsi))
+    psimesh=np.linspace(simin,simax,npsi)
+    eq['rhopolmap']=np.sqrt(np.linspace(0.,sepfrac,npsi-1))
     rhopol = np.linspace(0,1,npsi)
 
 
@@ -260,7 +263,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
     for i,crvs in enumerate(psi_cs.allsegs):
       knds=psi_cs.allkinds[i]
       for j,crv in enumerate(crvs):
-#        print('crv',i,j,psi_cs.allsegs,crv)
+        if dodebug: print('crv',i,j,len(psi_cs.allsegs),crv.shape)
         x,y=zip(*crv)
         knd=knds[j]
         hasaxis=Path(crv,knd).contains_point( (rmaxis,zmaxis)  ) 
@@ -363,7 +366,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
 #  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
   #add origin pt
 
-  Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor']*eq['darea'], midpsimap,initial=0)
+  Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor']*eq['darea'], psimesh,initial=0)
 
   print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
   Ipsi_mod=Ipsi*eq['current']/Ipsi[-1] 
