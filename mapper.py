@@ -4,7 +4,6 @@ import scipy.integrate as integrate
 from scipy.interpolate import griddata
 from scipy.interpolate import RectBivariateSpline, RegularGridInterpolator
 import scipy.fftpack as sft
-from scipy import integrate
 import scipy.interpolate
 
 from plasma import  equilibrium_process as eqdsk
@@ -119,7 +118,7 @@ def min_in_polygon(X, Y, Z, px, py, findmax=False, doplot=False):
     return max_val, ix_max, iy_max, x_max, y_max
  
  
-def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
+def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
            sepfrac=0.98,dodebug=False,doplot=False,ifrhopol=True):
   """
     mapper calculates a r,theta cooridinate system within the last closed
@@ -163,7 +162,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
   psi_int=spline_psi.ev(RR,ZZ)
   psi_int_r=spline_psi.ev(RR,ZZ,dx=1)
   psi_int_z=spline_psi.ev(RR,ZZ,dy=1)
-  grad_psi=np.sqrt(psi_int_z**2+psi_int_r**2)
+  grad_psi=np.sqrt(psi_int_z**2+psi_int_r**2) #sqrt [(d psi/ dx) **2 +(d psi/dy)**2]=|grad psi|
 
 
 #Define uniform theta mesh
@@ -212,31 +211,22 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
   dpsi=(eq['sibry']-eq['simag'])/(npsi-2.)
   simax=(eq['sibry']-eq['simag'])*sepfrac+eq['simag']
   simin=eq['simag']+dpsi
-  if ifrhopol:  #su btract 1 from npsi to add origin later but not try to contour it
+  if ifrhopol:  #subtract 1 from npsi to add origin later but do not try to contour it
     sgnpsi = np.sign(np.linspace( simin,simax,npsi-1) )
-    rhopol = np.linspace( np.sqrt(np.abs(simin)),np.sqrt(np.abs(simax) ),npsi-1)
+    rhopol = np.linspace( np.sqrt(np.abs(simin)),np.sqrt(np.abs(simax) ),npsi)[1:]
     fity = rhopol**2*sgnpsi #values of flux space uniformly approx in space
     rhopol = np.linspace(0,1,npsi) #rhopol is just 0,1 mesh uniform
     psimesh=fity
     eq['rhopolmap']=rhopol  #sqrt norm rho pol for map size npsi, linear spaced
   else:
-    psimesh=np.linspace(simin,simax,npsi)
-    eq['rhopolmap']=np.sqrt(np.linspace(0.,sepfrac,npsi-1))
+    psimesh=np.linspace(simin,simax,npsi-1)  # npsi-1 contourable surfaces; axis point prepended later to reach size npsi
+    eq['rhopolmap']=np.sqrt(np.linspace(0.,1,npsi))
     rhopol = np.linspace(0,1,npsi)
 
-
   eq['psipolmap'] = psimesh
-  if dodebug: print('psimesh',psimesh)
-  if dodebug: print('rho sizes',len(psimesh),len(rhopol))
-  if dodebug: print('psiaxis',eq.get('simag'),eq.get('sibry'),sgnflux)
-  c_pprime  = np.interp( psimesh, eq['fluxGrid'], eq['pprime'] )
-  c_ffprime = np.interp( psimesh, eq['fluxGrid'], eq['ffprim'] )
-  qmap      = np.interp( psimesh, eq['fluxGrid'], eq['qpsi']   )
-  #calculate toroidal flux and rhotor
-  psitormap=integrate.cumulative_trapezoid(qmap,psimesh,initial=0.0)
-  rhotor=(psitormap-psitormap[0])/(psitormap[-1]-psitormap[0])
-  eq['rhotormap']=rhotor
-    
+  c_pprime  = np.interp(   eq['psipolmap'], eq['fluxGrid'], eq['pprime'] )
+  c_ffprime = np.interp(   eq['psipolmap'], eq['fluxGrid'], eq['ffprim'] )
+
 #Extract contours and values for flux coordinate system.
 #contours go counter-clockwise, which we want
 #contours don't necessarily start at y=0., so rebase
@@ -323,23 +313,25 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
       dl=np.sqrt(df_dx**2+df_dy**2) #These two steps could be done with FFT too.
 
       #flux surface integrals here for later use, eg current profile
-      c_curtor = -integrate.simpson(
+      # dA/dψ​=∮dl/∣∇ψ∣
+      c_area = integrate.simpson(
+          dl/c_gradpsi
+      ) #this area is centered on the cell and is darea/dpsi using psi from G-EQDSK
+
+      #From G-S J_phi force balance equation
+      c_curtor = np.sign(eq['simag'])*integrate.simpson( #d(Jphi.A)/dpsi=int Jphi darea/dpsi
           dl/c_gradpsi* filtered_cx*( c_pprime[c_idx] +
                                       c_ffprime[c_idx]/filtered_cx**2/mu0 ) )
 
-
-      #From G-S J_phi force balance equation
-      c_area = integrate.simpson(
-          dl/c_gradpsi
-      ) #this area is centered on the cell and is darea/dpsi
       area.append( c_area )
       curtor.append (c_curtor/c_area)  #make this d<Jphi>/dpsi
 
       #if straight field line, multiply dl by 1/R*|gradpsi|
+      #Jstraight​(ψ,θ)=q(ψ)R(θ)^2​ / F(ψ)
       if jac=='straight':
-        dtheta=dl/np.abs(c_gradpsi*filtered_cx)
-      else: #jac='eqarc'
-        dtheta=dl
+          dtheta=dl/np.abs(c_gradpsi*filtered_cx) # = dl/(|∇ψ| R) = dl/(R² B_p)
+      else: #jac='eqarc'     Jeqarc​(ψ,θ)=L(ψ)​/2πBp​(θ)=L(ψ)​/2π  ∣R(θ)​/​∣∇ψ(θ)
+          dtheta=dl
       L=integrate.cumulative_trapezoid(dtheta,initial=0)/len(dtheta)
 
       #now put each on same theta mesh, Jacobian selection
@@ -349,34 +341,38 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
       t_map=scipy.interpolate.interp1d(this_theta,filtered_cy,kind='cubic')
       eq_y.append(t_map(uni_theta))
 
-  #add origin term
-  #area.insert(0,0.)          #area of origin is 0.
-  #curtor.insert(0,curtor[0]) #current density maximum at origin
 
+  #collect and add origin term
   curtor=np.array(curtor)
   area=np.array(area)
-  eq['darea']=area
-  eq['Jtor']=curtor
-  midpsimap= (eq['psipolmap'][1:] + eq['psipolmap'][:-1])/2
-  
-  if dodebug: print('curtor size', len(curtor), len(area), len(midpsimap),
-                    len(np.diff(eq['psipolmap'])), len(eq['psipolmap']),len(psixy) )
-  #center_psimap=(( eq['psipolmap']+np.roll(eq['psipolmap'],1)  )/2)
-  #Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor'],eq['darea'], initial=0)
-#  Ipsi=scipy.integrate.cumulative_trapezoid(eq['Jtor']*eq['darea']*np.diff(eq['psipolmap']),initial=0) #),3.14159*0.01)
-  #add origin pt
 
-  Ipsi=scipy.integrate.cumulative_trapezoid( eq['Jtor']*eq['darea'], psimesh,initial=0)
+  # ...then prepend the axis value to every flux-surface 1D array so each has
+  # length npsi, consistent with eq['rhopolmap'] and the (npsi, ntheta)
+  # Xmap/Zmap grid.
+  #calculate toroidal flux and rhotor
+  eq['psipolmap'] = np.concatenate(([eq['simag']], psimesh))
+  qmap      = np.interp(   eq['psipolmap'], eq['fluxGrid'], eq['qpsi']   )
+  psitormap=integrate.cumulative_trapezoid(qmap,  eq['psipolmap'],initial=0.0)
+  rhotor=(psitormap-psitormap[0])/(psitormap[-1]-psitormap[0])
+  eq['rhotormap'] = rhotor
+  eq['darea']     = np.concatenate(( [area[0]], area))          # enclosed area at the axis is 0
+  eq['Jtor']      = np.concatenate(([curtor[0]], curtor))  # J_phi is regular at the axis; nearest-surface value used
+
+
+
+  # curtor/area/psimesh/rhotor live on the npsi-1 contoured surfaces (the
+  # magnetic axis itself cannot be contoured), so do the current-profile
+  # integration at that native length first...
+  Ipsi=integrate.cumulative_trapezoid( eq['Jtor']*eq['darea'], eq['psipolmap'],initial=0)
 
   print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
-  Ipsi_mod=Ipsi*eq['current']/Ipsi[-1] 
-#  eq['Jtor']=eq['Jtor']*eq['current']/Ipsi[-1] 
-  #Ipsi = scipy.integrate.cumulative_trapezoid( curtor, center_psimap, initial=0)
-  eq['Ipsi']=Ipsi_mod
-  
-  #center_area=(( eq['darea_dpsi']+np.roll(eq['darea_dpsi'],1)  )/2)[1:]
-  #totarea=scipy.integrate.cumulative_trapezoid( eq['darea_dpsi'][1:], center_psimap)
-  
+  Ipsi_mod=Ipsi*eq['current']/Ipsi[-1]
+  eq['Ipsi']      = Ipsi_mod
+
+  if dodebug: print('curtor size', len(curtor), len(area), 
+                    len(np.diff(eq['psipolmap'])), len(eq['psipolmap']),len(psixy) )
+
+  #add origin pt
   Xmap=np.double(np.vstack(eq_x))
   Zmap=np.double(np.vstack(eq_y))
   #add origin
@@ -384,20 +380,17 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
   NZmap=np.zeros([npsi,ntheta])
   if dodebug: print('Xmap shape',Xmap.shape,NXmap.shape)
   
-  NZmap[0,:]= zmaxis #could be vertically shifted
-  NXmap[0,:]= rmaxis
-  NXmap[1:,:]=Xmap
   NZmap[1:,:]=Zmap
+  NZmap[0,:]= zmaxis #could be vertically shifted
+  NZmap[:,0]= zmaxis #could be vertically shifted
+  
+  NXmap[1:,:]=Xmap
+  NXmap[0,:]= rmaxis
 
-  del(Xmap)
-  del(Zmap)
-  Xmap=NXmap
-  Zmap=NZmap
-
-  eq['xmap']=Xmap
-  eq['zmap']=Zmap
+  eq['xmap']=NXmap
+  eq['zmap']=NZmap
   eq['jac']=jac
-  eq['maxpsi']=sepfrac
+  eq['lastpsi']=sepfrac
   
   if doplot: plot_equilibrium(eq)
   return eq
@@ -422,4 +415,3 @@ def plot_equilibrium(eq):
   ax.plot(np.append(Xmap[-1,:],Xmap[-1,0]), np.append(Zmap[-1,:],Zmap[-11,0]) )
 
   ax.set_title('Surfaces of constant theta and psi (every 5th)');
-

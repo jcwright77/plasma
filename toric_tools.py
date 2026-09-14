@@ -157,7 +157,7 @@ def readArray(of,fmt,shp,nperline=5):
     vals=[]
     if len(shp)==1: N=shp[0]
     if len(shp)==2: N=shp[0]*shp[1]
-    nlines = int(N/nperpline)
+    nlines = int(N/nperline)
     if (N%nperline)!=0: nlines+=1
     for i in range( nlines ):
         vals.extend(fmt.read(next(of)))
@@ -272,7 +272,7 @@ def toric_eqmodes(eq):
   #todo: get xmap and zmap from eq
 
   Xmap=eq.get('xmap') ; Zmap = eq.get('zmap')
-  nmhd,ntheta=Xmap.shape ; imom=12
+  nmhd,ntheta=Xmap.shape ; imom=12  #Magic number
   rmc2d=np.zeros([nmhd,imom+1])
   rms2d=np.zeros([nmhd,imom+1])
   zmc2d=np.zeros([nmhd,imom+1])
@@ -342,8 +342,9 @@ def write_equigs(eq,equigsfile):
         equigs["sign_torcur"] =np.sign(eq['current']/1000.)
         file.write(f"{equigs['torcur']:18.9E}\n") #eqdsk is in Amps, torlh in kAmps
 
-        equigs["rzmcs2d"]=eq['rzmcs2d']  #these are gotten from mapper.py and ffts
+        equigs["rzmcs2d"]=eq['rzmcs2d']  #these are gotten from mapper.py and ffts of xmap,zmap
         rmc2d,rms2d,zmc2d,zms2d=eq['rzmcs2d']
+
         imom=rmc2d.shape[1]
         file.write(' Number of poloidal modes\n')
         equigs["imom"] = imom-1
@@ -386,9 +387,7 @@ def write_equigs(eq,equigsfile):
         formattedwrite(file,eq['rhotormap'])
 
         file.write(' Fraction Psi poloidal at last surface\n')
-        equigs["lastpsi"]=1.0 #make better
-        file.write(f"{equigs['lastpsi']:18.9E}\n")
-
+        file.write(f"{eq['lastpsi']:18.9E}\n")
     return equigs
 
 
@@ -500,7 +499,7 @@ def plot_equigs(equigs, ntheta=65, ax=None):
     ztest=np.zeros([nmhd,ntheta])
     theta = np.linspace(0,2.*np.pi,ntheta,endpoint=False)
 
-    idx = np.linspace(0,imom+1,imom+1)
+    idx = np.linspace(0,imom,imom+1)
     for i in range(nmhd):
         for j in range(len(theta)):
             th=theta[j]
@@ -518,13 +517,21 @@ def plot_equigs(equigs, ntheta=65, ax=None):
         ax.plot(rtest[:,i],ztest[:,i])
 
     #Psi surface
-    for i in np.arange(0,len(rtest[:,0]),5):
+    for i in np.arange(0,len(rtest[:,0])):
         ax.plot(rtest[i,:],ztest[i,:])
     ax.plot(rtest[-1,:],ztest[-1,:])
 
     ax.set_title('Toric Eq from equigs file '+equigs['file']);
 
+    #plot sin/cos components
+    
+    fig, axs = plt.subplots(2, 2)
+    axs[0, 0].plot(rmc2d[:,1])
+    axs[0, 1].plot(zmc2d[:,1])
+    axs[1, 0].plot(rmc2d[:,2])
+    axs[1, 1].plot(zmc2d[:,2])
     return ax
+
 
 
 def XZ_from_equigs(equigs,dpsi=0,dtheta=0):
