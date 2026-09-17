@@ -30,12 +30,19 @@ class cql3d:
         except IOError:
             print ('CRITICAL',self.cqlname,'not found.')
             self.cqlhdl = -1
+            return
 
         try:
             self.cqlrfhdl = nc.netcdf_file(self.cqlrfname,'r')
         except IOError:
             print (self.cqlrfname,'not found, relevant fns disabled.')
             self.cqlrfhdl = False
+            return
+
+        self.u     = self.cqlhdl.variables['x'][:]
+        self.pitch = self.cqlhdl.variables['y'][:]
+        self.rya   = self.cqlhdl.variables['rya'][:]
+        self.enorm = self.cqlhdl.variables['enorm'].getValue()
         return
     
     def info( self ):

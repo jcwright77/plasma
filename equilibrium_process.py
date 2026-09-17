@@ -432,13 +432,14 @@ def convert_cocos(eqin,cocos_in=3,cocos_out=3):
     
     #need better treatment for case where q is not one sign
     if cocos_out%10 in [3,4,5,6] : eq['qpsi']=np.abs(eq['qpsi'])
-    eq['fluxGrid']*=(1./fluxfactor)
+    eq['fluxGrid']*=(1./fluxfactor)*signpsi
     eq['psizr']*=(1./fluxfactor)*signpsi
     eq['psirz']*=(1./fluxfactor)*signpsi    
     eq['sibry']*=(1./fluxfactor)*signpsi
     eq['simag']*=(1./fluxfactor)*signpsi
-    eq['fluxGrid']*=signpsi
     eq['cocos']=1
+    eq['ffprim']*=(fluxfactor)
+    eq['pprime']*=(fluxfactor)
     return eq
 
 
@@ -581,7 +582,7 @@ def plotEQDSK(eq,asp=1.0):
     if eq['pres'][0]>0:
         ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],     label='p/p(0)')
     if eq['pprime'][0]>0:
-        ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0], label="p' norm")
+        ax3.plot(eq['fluxGrid'], eq['pprime']/eq['pprime'][0]/10., label="p' norm/10")
     ax3.legend(bbox_to_anchor=(-0.1,0.5))
 
     ax4.text(0.5,0.9,'Values from EQDSK header.',ha='center')
