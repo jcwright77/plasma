@@ -419,14 +419,14 @@ def get_cocos(eqobj):
 
 
 def convert_cocos(eqin,cocos_in=3,cocos_out=3):
-    """ In progress. Convert to coco1 then to cocos_out"""
+    """ In progress. Convert to cocos=1 then to cocos_out"""
     eq=copy.deepcopy(eqin)
     if cocos_in==cocos_out: return eq
 
     decpsi= (eq['sibry']<eq['simag'])
-    fluxfactor=1.0 ; sbp = +1.0 ; signpsi = 1.0
+    fluxfactor=1.0 ; sbp = +1.0 ; signpsi = +1.0
     if eq['cocos']>=11   : fluxfactor=2.*np.pi
-    if eq['cocos']%10==3 : sbp=-1.0
+    if eq['cocos']%10 in [3,4,7,8] : sbp=-1.0
     if eq['cocos']%10 in [3,4,7,8] and decpsi: signpsi=-1.0 #make it increasing
 
     

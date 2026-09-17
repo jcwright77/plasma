@@ -212,7 +212,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
   dpsi=(eq['sibry']-eq['simag'])/(npsi-2.)
   simax=(eq['sibry']-eq['simag'])*sepfrac+eq['simag']
   simin=eq['simag']+dpsi
-  if ifrhopol:  #su btract 1 from npsi to add origin later but not try to contour it
+  if ifrhopol:  #subtract 1 from npsi to add origin later but not try to contour it
     sgnpsi = np.sign(np.linspace( simin,simax,npsi-1) )
     rhopol = np.linspace( np.sqrt(np.abs(simin)),np.sqrt(np.abs(simax) ),npsi-1)
     fity = rhopol**2*sgnpsi #values of flux space uniformly approx in space
@@ -236,7 +236,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=40, ntheta=128, nsample=600,
   psitormap=integrate.cumulative_trapezoid(qmap,psimesh,initial=0.0)
   rhotor=(psitormap-psitormap[0])/(psitormap[-1]-psitormap[0])
   eq['rhotormap']=rhotor
-    
+
 #Extract contours and values for flux coordinate system.
 #contours go counter-clockwise, which we want
 #contours don't necessarily start at y=0., so rebase
