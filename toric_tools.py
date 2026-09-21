@@ -9,6 +9,7 @@ import os
 from matplotlib import ticker, cm
 import fortranformat as ff
 import f90nml
+from scipy.interpolate import make_smoothing_spline
 
 #other deps below
 from periodictable import elements
@@ -289,6 +290,14 @@ def toric_eqmodes(eq):
     zms2d[i,1:]= np.real((cZ[1:imom+1]-np.flip(cZ)[0:imom])*complex(0.,1,))
 
   eq['rzmcs2d'] = [rmc2d,rms2d,zmc2d,zms2d]
+  #smooth mapper
+  xrho=eq['rhopolmap']
+  for coord in eq['rzmcs2d']:
+      for m in range(len( coord[0,:] ) ):
+          spline = make_smoothing_spline(xrho, coord[:,m])
+          smoothy = spline(xrho)
+          coord[:,m]=smoothy
+
 
 
 def write_equigs(eq,equigsfile):
