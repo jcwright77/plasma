@@ -339,10 +339,10 @@ def write_equigs(eq,equigsfile):
 
         file.write(' Total toroidal current (kA)\n')
         equigs["torcur"] =np.abs(eq['current']/1000.)
-        equigs["sign_torcur"] =np.sign(eq['current']/1000.)
-        file.write(f"{equigs['torcur']:18.9E}\n") #eqdsk is in Amps, torlh in kAmps
+        equigs["sign_torcur"] =np.sign(eq['current'])
+        file.write(f"{equigs['torcur']:18.9E}\n") #eqdsk is in Amps, toric in kAmps
 
-        equigs["rzmcs2d"]=eq['rzmcs2d']  #these are gotten from mapper.py and ffts of xmap,zmap
+        equigs["rzmcs2d"]=eq['rzmcs2d']
         rmc2d,rms2d,zmc2d,zms2d=eq['rzmcs2d']
 
         imom=rmc2d.shape[1]
@@ -1397,7 +1397,7 @@ class toric_analysis:
         ant_it_height= int(sx*self.antenna['length']/2/
                            ( 2.*np.pi * self.antenna['radius'] ) )
 
-        ant_it_pos   = (self.antenna['theta']*sx/360.).astype(int)
+        ant_it_pos = (np.asarray(self.antenna['theta'])*sx/360.).astype(int)
 
         for ait in ant_it_pos:
             r1=np.arange(  ait, ait+ant_it_height+1)%sx

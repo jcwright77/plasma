@@ -16,7 +16,6 @@ from packaging.version import Version
 
 import copy
 
-mu0=4.*np.pi*1.e-7
 def calcarea(x,y):
     #x=vs[:,0]
     #y=vs[:,1]
@@ -157,8 +156,8 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
   z200=np.linspace(min(Z),max(Z),nsample)
   RR,ZZ=np.mgrid [min(R):max(R):np.complex64(0,nsample), min(Z):max(Z):np.complex64(0,nsample) ]
 
-  spline_psi = scipy.interpolate.RectBivariateSpline(R,Z,psi.T,bbox=[np.min(R),
-                                      np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
+  spline_psi = scipy.interpolate.RectBivariateSpline(R,Z,psi.T,#s=0.001,
+                   bbox=[np.min(R),np.max(R),np.min(Z),np.max(Z)],kx=5,ky=5)
   psi_int=spline_psi.ev(RR,ZZ)
   psi_int_r=spline_psi.ev(RR,ZZ,dx=1)
   psi_int_z=spline_psi.ev(RR,ZZ,dy=1)
@@ -319,6 +318,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
       ) #this area is centered on the cell and is darea/dpsi using psi from G-EQDSK
 
       #From G-S J_phi force balance equation
+      mu0=4.*np.pi*1.e-7
       c_curtor = np.sign(eq['simag'])*integrate.simpson( #d(Jphi.A)/dpsi=int Jphi darea/dpsi
           dl/c_gradpsi* filtered_cx*( c_pprime[c_idx] +
                                       c_ffprime[c_idx]/filtered_cx**2/mu0 ) )

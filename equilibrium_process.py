@@ -373,7 +373,10 @@ def q_on_axis(eq):
     psi_ZZ = (psirz[iZ+1, iR] - 2*psirz[iZ, iR] + psirz[iZ-1, iR]) / dZ**2
 
     F0 = eq['fpol'][0]
-    q0 = F0 / (rmaxis * np.sqrt(psi_RR * psi_ZZ))
+    if rmaxis==0.0:
+        q0=-1.
+    else:
+        q0 = F0 / (rmaxis * np.sqrt(psi_RR * psi_ZZ))
     return q0
 
 
@@ -575,10 +578,10 @@ def plotEQDSK(eq,asp=1.0):
     ax3.set_title('Profiles')
     ax3.set_xlim(eq['simag'],eq['sibry'])
     if eq['ffprim'][0]>0:
-        ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], 'o', label="FF' norm")
-    ax3.plot(eq['fluxGrid'], eq['qpsi'],                   label='q')
+        ax3.plot(eq['fluxGrid'], eq['ffprim']/eq['ffprim'][0], label="FF' norm")
+    ax3.plot(eq['fluxGrid'], eq['qpsi'],                       label='q')
     if eq['fpol'][0]>0:
-        ax3.plot(eq['fluxGrid'], eq['fpol']/ eq['fpol'][0],    label='F/F(0)')
+        ax3.plot(eq['fluxGrid'], eq['fpol']/eq['fpol'][0],     label='F/F(0)')
     if eq['pres'][0]>0:
         ax3.plot(eq['fluxGrid'], eq['pres']/eq['pres'][0],     label='p/p(0)')
     if eq['pprime'][0]>0:
