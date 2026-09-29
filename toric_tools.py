@@ -211,7 +211,7 @@ def read_equidt(filename,idebug=False):
         for profile in keys: #reading electron profiles
             [proname]=f0005.read(next(of))
             profiles[profile]=readArray(of,f0004,[nprodt])
-            if idebug: print('reading name,size',proname,profiles[proname.strip()][0:4])
+            if idebug: print('reading name,size',proname,profiles[profile]) #proname.strip()][0:4])
 
         if rfxqlo_pro_variant:  #Transp variant
             for isp in range(nspec):
@@ -609,8 +609,8 @@ def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savef
             return readArray(of,fmt,[nx],6)
 
         
-        srad=getpsiarray(of,fmt=f0007)
-        irad=getpsiarray(of,fmt=f0007)
+        srad=getpsiarray(of,fmt=f0007,nx=npsi)
+        irad=getpsiarray(of,fmt=f0007,nx=ipsi)
 #        [plotName]=f0005.read(next(of))
 #        if idebug : print('plotName',plotName,npsi)
 #        srad=readArray(f0007,[npsi])
@@ -619,7 +619,7 @@ def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savef
 #        irad=readArray(f0007,[ipsi])
 
         if idebug : print('modmhd',modmhd)
-        for m in range(modmhd+4):
+        for m in range(modmhd*4+2):
             print('m',m)
             [plotName]=f0005.read(next(of))
             if idebug : print('plotName',plotName)
@@ -634,8 +634,8 @@ def read_diag(diagfile='toric.asc',idebug=False): #,linetype='color',ppp=1,savef
 
         #Magnetic Field Configuration 
         [plotName]=f0005.read(next(of))                      
-        if int(plotName)==0:
-            print('idlout set to 0 in torica.inp. Stopping')
+        if plotName.isdigit():
+            print('idlout set to 0 in torica.inp. Stopping',plotname)
             return diag
 
         [ncy1, ncy2, nres, ncof, npvert]=f0014.read(next(of))

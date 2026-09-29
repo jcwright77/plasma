@@ -129,12 +129,57 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
   """
       
   if isinstance(eqobj,str):
-    eq=eqdsk.readGEQDSK(eqobj)[0]
+    eq=eqdsk.readGEQDSK2(eqobj)[0]
   elif isinstance(eqobj,dict):
     eq=copy.deepcopy(eqobj)
   else:
     return "Unrecognized equilibrium object, must be filename or dictionary"
 
+
+  #get psi mesh for surfaces for theta within LCF
+  #LCS is at psi=0
+  #drop first point, magnetic axis. We add this one manually since it cannot
+  #be contoured.
+
+  #psimesh=eq['fluxGrid'][1:] #poloidal flux grid, created by readGEQDSK from eqdsk but not in eqdsk file
+  #resize psi to the number of desired psi levels, psimesh is already uniform
+  #initial psimesh is [-psimin,0].
+  #the following is only necessary if psimesh is not uniform which it should be for an eqdsk file.
+
+  #compensate for going through zero. Better way may be to map 0..1 to fluxGrid and take sqrt{||} for rho mesh
+  sgnflux=np.sign( eq['simag']*eq['sibry']  )
+  if (dodebug): print('check psi levels',sgnflux,np.max(eq['psizr'] ),np.min(eq['psizr'] ))
+  if sgnflux<0.0:
+    dflux = eq['simag']
+    eq['simag']    -= dflux
+    eq['sibry']    -= dflux
+    eq['fluxGrid'] -= dflux
+    eq['psizr']    -= dflux
+  if (dodebug): print('check psi levels',sgnflux,np.max(eq['psizr'] ),np.min(eq['psizr'] ))
+  
+  if eq['simag']>eq['sibry'] :
+    print('Error, mapper requires increasing poloidal flux, please convert to cocos%10=1,2,5,6 first')
+    exit
+
+  dpsi=(eq['sibry']-eq['simag'])/(npsi-2.)
+  simax=(eq['sibry']-eq['simag'])*sepfrac+eq['simag']
+  simin=eq['simag']+dpsi
+  if ifrhopol:  #subtract 1 from npsi to add origin later but do not try to contour it
+    sgnpsi = np.sign(np.linspace( simin,simax,npsi-1) )
+    rhopol = np.linspace( np.sqrt(np.abs(simin)),np.sqrt(np.abs(simax) ),npsi)[1:]
+    fity = rhopol**2*sgnpsi #values of flux space uniformly approx in space
+    rhopol = np.linspace(0,1,npsi) #rhopol is just 0,1 mesh uniform
+    psimesh=fity  #psimesh corresponding to uniform rhomesh
+    eq['rhopolmap']=rhopol  #sqrt norm rho pol for map size npsi, linear spaced
+  else:
+    psimesh=np.linspace(simin,simax,npsi-1)  # npsi-1 contourable surfaces; axis point prepended later to reach size npsi
+    eq['rhopolmap']=np.sqrt(np.linspace(0.,1,npsi))
+    rhopol = np.linspace(0,1,npsi)
+
+  eq['psipolmap'] = psimesh
+  if(dodebug): print('psimesh',psimesh)
+
+  
   R=eq.get('r')
   Z=eq.get('z')#-eq['zmaxis']  #axis needs to be at z=0 for mapping
   B,grad_psi,fRZ,Rv,Zv,Bv=eqdsk.getModB(eq)
@@ -192,37 +237,6 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
   #we will have eq_theta at each filtered_cx,cy
   #like polar contour needed to be converted to regular mesh
 
-  #get psi mesh for surfaces for theta within LCF
-  #LCS is at psi=0
-  #drop first point, magnetic axis. We add this one manually since it cannot
-  #be contoured.
-
-  #psimesh=eq['fluxGrid'][1:] #poloidal flux grid, created by readGEQDSK from eqdsk but not in eqdsk file
-  #resize psi to the number of desired psi levels, psimesh is already uniform
-  #initial psimesh is [-psimin,0].
-  #the following is only necessary if psimesh is not uniform which it should be for an eqdsk file.
-
-  sgnflux=np.sign( eq['simag']+eq['sibry']  )
-  if eq['simag']>eq['sibry'] :
-      print('Error, mapper requires increase poloidal flux, please convert to cocos%10=1,2,5,6 first')
-      exit
-
-  dpsi=(eq['sibry']-eq['simag'])/(npsi-2.)
-  simax=(eq['sibry']-eq['simag'])*sepfrac+eq['simag']
-  simin=eq['simag']+dpsi
-  if ifrhopol:  #subtract 1 from npsi to add origin later but do not try to contour it
-    sgnpsi = np.sign(np.linspace( simin,simax,npsi-1) )
-    rhopol = np.linspace( np.sqrt(np.abs(simin)),np.sqrt(np.abs(simax) ),npsi)[1:]
-    fity = rhopol**2*sgnpsi #values of flux space uniformly approx in space
-    rhopol = np.linspace(0,1,npsi) #rhopol is just 0,1 mesh uniform
-    psimesh=fity
-    eq['rhopolmap']=rhopol  #sqrt norm rho pol for map size npsi, linear spaced
-  else:
-    psimesh=np.linspace(simin,simax,npsi-1)  # npsi-1 contourable surfaces; axis point prepended later to reach size npsi
-    eq['rhopolmap']=np.sqrt(np.linspace(0.,1,npsi))
-    rhopol = np.linspace(0,1,npsi)
-
-  eq['psipolmap'] = psimesh
   c_pprime  = np.interp(   eq['psipolmap'], eq['fluxGrid'], eq['pprime'] )
   c_ffprime = np.interp(   eq['psipolmap'], eq['fluxGrid'], eq['ffprim'] )
 
@@ -233,6 +247,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
   ax = fig.add_subplot(111)
   ax.set_aspect('equal')
   fig.set_figheight(6)
+  if (dodebug): print('check psi levels',np.max(psi_int),np.min(psi_int))
   psi_cs=plt.contour(RR,ZZ,psi_int,levels=psimesh)
 
   psixy=[]
@@ -253,6 +268,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
       knds=psi_cs.allkinds[i]
       for j,crv in enumerate(crvs):
         if dodebug: print('crv',i,j,len(psi_cs.allsegs),crv.shape)
+#        if dodebug: return eq
         x,y=zip(*crv)
         knd=knds[j]
         hasaxis=Path(crv,knd).contains_point( (rmaxis,zmaxis)  ) 
@@ -319,7 +335,7 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
 
       #From G-S J_phi force balance equation
       mu0=4.*np.pi*1.e-7
-      c_curtor = np.sign(eq['simag'])*integrate.simpson( #d(Jphi.A)/dpsi=int Jphi darea/dpsi
+      c_curtor = -np.sign(eq['current'])*integrate.simpson( #d(Jphi.A)/dpsi=int Jphi (darea/dpsi) dtheta
           dl/c_gradpsi* filtered_cx*( c_pprime[c_idx] +
                                       c_ffprime[c_idx]/filtered_cx**2/mu0 ) )
 
@@ -354,10 +370,11 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
   qmap      = np.interp(   eq['psipolmap'], eq['fluxGrid'], eq['qpsi']   )
   psitormap=integrate.cumulative_trapezoid(qmap,  eq['psipolmap'],initial=0.0)
   rhotor=(psitormap-psitormap[0])/(psitormap[-1]-psitormap[0])
+  eq['psitormap'] = psitormap
   eq['rhotormap'] = rhotor
   eq['darea']     = np.concatenate(( [area[0]], area))          # enclosed area at the axis is 0
   eq['Jtor']      = np.concatenate(([curtor[0]], curtor))  # J_phi is regular at the axis; nearest-surface value used
-
+  print('area test', integrate.cumulative_trapezoid(eq['darea'],  eq['psipolmap'],initial=0.0)[-1],'m2' )
 
 
   # curtor/area/psimesh/rhotor live on the npsi-1 contoured surfaces (the
@@ -365,8 +382,8 @@ def mapper(eqobj,jac='eqarc',maxmom=12, npsi=101, ntheta=128, nsample=600,
   # integration at that native length first...
   Ipsi=integrate.cumulative_trapezoid( eq['Jtor']*eq['darea'], eq['psipolmap'],initial=0)
 
-  print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1]," rescaling")
-  Ipsi_mod=Ipsi*eq['current']/Ipsi[-1]
+  print("Current accuracy eqdsk,mapper", eq['current'],Ipsi[-1],eq['current']/Ipsi[-1]," rescaling")
+  Ipsi_mod=Ipsi*np.abs(eq['current']/Ipsi[-1])
   eq['Ipsi']      = Ipsi_mod
 
   if dodebug: print('curtor size', len(curtor), len(area), 
