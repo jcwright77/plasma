@@ -521,14 +521,14 @@ def plot_equigs(equigs, ntheta=65, ax=None):
     ax.set_aspect('equal')
     #fig.set_figheight(12)
 
-    #Theta lines
-    for i in np.arange(0,len(rtest[0,:]),2):
-        ax.plot(rtest[:,i],ztest[:,i])
-
     #Psi surface
     for i in np.arange(0,len(rtest[:,0])):
         ax.plot(rtest[i,:],ztest[i,:])
     ax.plot(rtest[-1,:],ztest[-1,:])
+
+    #Theta lines
+    for i in np.arange(0,len(rtest[0,:]),2):
+        ax.plot(rtest[:,i],ztest[:,i],'r')
 
     ax.set_title('Toric Eq from equigs file '+equigs['file']);
 
@@ -539,7 +539,7 @@ def plot_equigs(equigs, ntheta=65, ax=None):
     axs[0, 1].plot(zmc2d[:,1])
     axs[1, 0].plot(rmc2d[:,2])
     axs[1, 1].plot(zmc2d[:,2])
-    return ax
+    return ax,rtest,ztest
 
 
 
@@ -816,9 +816,9 @@ class toric_analysis:
             print ('CRITICAL: ',path+self.prefix+self.toric_data,' not found.')
 
         try:
-            self.data_hdl = netcdf_file(path+self.prefix+'fort.9',mmap=False )
+            self.data_hdl = netcdf_file(path+self.prefix+self.toric_data,mmap=False )
         except FileNotFoundError:
-            print ('CRITICAL: ',path+self.prefix+'fort.9 not found')
+            print ('CRITICAL: ',path+self.prefix+self.toric_data+' not found')
 
 
         xx = dvs[self.namemap['xplasma']].data

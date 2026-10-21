@@ -524,9 +524,10 @@ class ToricDiagnostics:
 
         for res in singularities.keys():
             if len(singularities[res])>0:
-                lres=singularities[res][0]
+                lres=singularities[res]
                 for i in range(len(lres)):
-                    ax.plot(lres[i][0],lrespi[[1],'-.')
+                    ax.plot(lres[i][0],lres[i][1],'-.',label=str(res)+" "+str(i))
+        plt.legend()
         print(f"Plotted magnetic configuration plots")
         
     def plot_metric_elements(self):
@@ -885,7 +886,8 @@ class ToricDiagnostics:
                    marker='o', markersize=1, alpha=0.7, label=f'Mode {k}')
         ax.set_xlabel('x (cm)', fontsize=8)
         ax.set_ylabel(r'$N_\|$', fontsize=8)
-        ax.set_ylim( -100,100 ) #JCW
+#        ax.set_ylim( -3000,3000 ) #JCW
+#        ax.set_xlim( 30 ) #JCW
         ax.legend(fontsize=7)
         ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=7)
@@ -904,7 +906,7 @@ class ToricDiagnostics:
                    marker='s', markersize=1, alpha=0.7, label=f'Mode {k}')
         ax.set_xlabel('x (cm)', fontsize=8)
         ax.set_ylabel('ω/(k_z·v_th)', fontsize=8)
-        ax.set_ylim( -1,10 ) #JCW
+#        ax.set_ylim( -1,10 ) #JCW
         ax.legend(fontsize=7)
         ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=7)
